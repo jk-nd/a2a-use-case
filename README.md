@@ -11,6 +11,7 @@ This project demonstrates the integration of Google's Agent2Agent (A2A) protocol
 - Policy enforcement via A2A hub working
 - **NPL Engine fully configured and accessible**
 - **All APIs (Core, Management, Admin, Streaming) working with authentication**
+- **RFP Protocol deployed and ready for integration**
 
 ## Architecture
 
@@ -145,6 +146,89 @@ environment:
   ENGINE_ALLOWED_ISSUERS: "http://keycloak:11000/realms/noumena"
 ```
 
+## NPL Protocol Deployment
+
+### Deployment Methods
+
+There are two ways to deploy NPL protocols to the engine:
+
+#### 1. **NPL CLI (Development Mode Only)**
+
+The NPL CLI is only available when running the engine in development mode with embedded OIDC:
+
+```bash
+# Only works with ENGINE_DEV_MODE=true
+npl deploy --sourceDir src/main
+```
+
+**⚠️ Important**: This method does NOT work when using Keycloak authentication.
+
+#### 2. **Management API (Production/Keycloak Mode)**
+
+When using Keycloak authentication, deploy protocols via the Management API:
+
+```bash
+# 1. Create a ZIP archive of your NPL sources
+cd src/main
+zip -r ../../protocol.zip .
+cd ../..
+
+# 2. Get authentication token
+export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=noumena&username=alice&password=password123" \
+  | jq -r '.access_token')
+
+# 3. Deploy via Management API
+curl -X PUT http://localhost:12400/management/application \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "archive=@protocol.zip" \
+  -F "tag=my-protocol-1.0.0" \
+  -F "uploadOrigin=MyProject@$(hostname)"
+```
+
+### Deployment Endpoints
+
+The Management API provides two deployment endpoints:
+
+- **`PUT /management/application`** - Deploy NPL sources and migrations
+- **`PUT /management/application/sources`** - Deploy NPL sources only (for rapid prototyping)
+
+### Verification
+
+After deployment, verify the protocol is available:
+
+```bash
+# Check deployment metadata
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:12400/management/application/deployment-metadata/latest
+
+# Check if protocol appears in Swagger UI
+curl -s http://localhost:12000/swagger-ui/index.html | grep -i "your-protocol-name"
+
+# Test protocol endpoints
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:12000/npl/your_package/-/openapi.json
+```
+
+### Example: RFP Protocol Deployment
+
+```bash
+# Create ZIP archive
+cd src/main && zip -r ../../rfp-protocol.zip . && cd ../..
+
+# Deploy RFP protocol
+curl -X PUT http://localhost:12400/management/application \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "archive=@rfp-protocol.zip" \
+  -F "tag=rfp-workflow-1.0.0" \
+  -F "uploadOrigin=A2A-Project@$(hostname)"
+
+# Verify deployment
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:12000/npl/rfp_workflow/-/openapi.json | jq '.paths | keys'
+```
+
 ### Available APIs
 
 | API | Port | Purpose | Access |
@@ -215,6 +299,15 @@ curl -H "Authorization: Bearer <token>" http://localhost:12000/api/streams
 ✅ Management API accessible (with proper configuration)
 ✅ Admin API accessible (with proper configuration)
 ✅ All APIs binding to correct interfaces
+```
+
+### RFP Protocol Deployment Results
+```bash
+✅ Protocol deployed successfully via Management API
+✅ API endpoints automatically generated
+✅ Swagger UI updated with RFP protocol
+✅ All protocol permissions exposed as REST endpoints
+✅ Protocol accessible at /npl/rfp_workflow/
 ```
 
 ### Procurement Agent Test Results
@@ -371,6 +464,22 @@ export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openi
 
 curl -H "Authorization: Bearer $TOKEN" http://localhost:12000/api/streams
 curl -H "Authorization: Bearer $TOKEN" http://localhost:12400/management/analysis
+
+# Test deployed RFP protocol
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:12000/npl/rfp_workflow/RfpWorkflow/
+
+# Create a new RFP instance
+curl -X POST http://localhost:12000/npl/rfp_workflow/RfpWorkflow/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "procurement": "alice@example.com",
+    "finance": "bob@example.com", 
+    "legal": "charlie@example.com",
+    "initialBudget": 50000,
+    "description": "Software Development Services"
+  }'
 
 # Test procurement agent
 curl -X POST http://localhost:8001/a2a/request \
