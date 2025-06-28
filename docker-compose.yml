@@ -72,5 +72,18 @@ services:
     depends_on:
       - a2a-server
 
+  # Finance Agent
+  finance-agent:
+    build:
+      context: ./finance-agent
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8002
+      A2A_HUB_URL: http://a2a-server:8000
+    ports:
+      - "8002:8002"
+    depends_on:
+      - a2a-server
+
 volumes:
   postgres_data:
