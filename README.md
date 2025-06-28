@@ -1,145 +1,223 @@
-# Agent2Agent NPL Runtime with Keycloak IAM
+# Agent2Agent (A2A) with NPL Integration
 
-A production-ready NPL (Noumena Protocol Language) runtime setup for building secure, policy-driven agent-to-agent applications with fine-grained authorization.
+This project demonstrates the integration of Google's Agent2Agent (A2A) protocol with the NOUMENA Protocol Language (NPL) for policy enforcement in multi-agent workflows.
 
-## 🎯 Overview
+## Architecture
 
-This project provides a complete infrastructure for building agent2agent applications using:
-- **NPL Engine** - Protocol execution runtime
-- **Keycloak IAM** - Enterprise-grade identity and access management
-- **Postgres** - Persistent storage
-- **Docker Compose** - Local development environment
+The system consists of four main components:
 
-## 🏗️ Architecture
+1. **A2A Server** (Node.js/TypeScript) - Implements the A2A protocol and handles agent communication
+2. **NPL Engine** - Policy engine for enforcing business rules and state transitions
+3. **Keycloak** - Identity and Access Management (IAM) for authentication and authorization
+4. **PostgreSQL** - Database for NPL engine state persistence
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Agent Apps    │    │   Keycloak      │    │   NPL Engine    │
-│                 │◄──►│   IAM Server    │◄──►│   Runtime       │
-│                 │    │   (Port 11000)  │    │   (Port 12000)  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                       │
-                                              ┌─────────────────┐
-                                              │   Postgres      │
-                                              │   Database      │
-                                              │   (Port 5432)   │
-                                              └─────────────────┘
-```
+## Features
 
-## 🚀 Quick Start
+- **A2A Protocol Compliance**: Full implementation of Google's Agent2Agent protocol using official TypeScript types
+- **NPL Policy Enforcement**: Integration with NOUMENA Protocol Language for business rule enforcement
+- **Multi-Agent Workflows**: Support for complex agent interactions with stateful workflows
+- **Fine-Grained Authorization**: Role-based access control through Keycloak integration
+- **Auditable Operations**: Complete audit trail of agent interactions and policy decisions
+
+## Use Case: Multi-Agent RFP Workflow
+
+The system implements a Request for Proposal (RFP) workflow involving multiple agents:
+
+- **Procurement Agent**: Initiates RFPs and manages the overall process
+- **Finance Agent**: Validates budgets and approves financial aspects
+- **Legal Agent**: Reviews contracts and ensures compliance
+- **Vendor Onboarding Agent**: Manages vendor registration and verification
+
+Each agent interaction is governed by NPL policies that enforce:
+- State transitions (draft → review → approved → executed)
+- Authorization rules (who can perform what actions)
+- Business constraints (budget limits, approval thresholds)
+- Audit requirements (logging all decisions)
+
+## Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose
-- NPL CLI (optional, for deployment)
-- `jq` for JSON processing
 
-### 1. Start the Runtime
+- Docker and Docker Compose
+- Node.js 18+ (for local development)
+- NPL CLI (for deploying NPL protocols)
+
+### 1. Start the Infrastructure
+
 ```bash
-docker compose up -d
+# Start all services
+docker-compose up -d
+
+# Check service status
+docker-compose ps
 ```
 
 ### 2. Verify Services
+
 ```bash
-# Check all containers are running
-docker compose ps
+# Test A2A server health
+curl http://localhost:8000/health
 
-# Test engine health
-curl http://localhost:12000/actuator/health
+# Test NPL engine health
+curl http://localhost:12000/health
 
-# Test Keycloak realm
-curl http://localhost:11000/realms/noumena/.well-known/openid-configuration
+# Test Keycloak (admin console at http://localhost:11000)
 ```
 
-### 3. Get Authentication Token
+### 3. Test A2A Integration
+
 ```bash
-export TOKEN=$(curl -X POST \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "client_id=noumena" \
-  -d "grant_type=password" \
-  -d "username=alice" \
-  -d "password=password123" \
-  "http://localhost:11000/realms/noumena/protocol/openid-connect/token" \
-  | jq -r '.access_token')
+# Install test dependencies
+npm install axios
+
+# Run the test client
+node test_a2a_client.js
 ```
 
-### 4. Access Swagger UI
-Open [http://localhost:12000/swagger-ui/](http://localhost:12000/swagger-ui/) in your browser and:
-1. Click "Authorize"
-2. Paste your JWT token
-3. Explore the NPL API endpoints
+## Service Endpoints
 
-## 🔧 Configuration
+### A2A Server (Port 8000)
+- `GET /health` - Health check
+- `GET /a2a/agent-card` - Agent capabilities and skills
+- `POST /a2a/request` - Handle A2A protocol requests
 
-### Keycloak Setup
-- **Admin Console**: [http://localhost:11000/](http://localhost:11000/) (admin/admin)
-- **Realm**: `noumena` (auto-imported)
-- **Client**: `noumena` (public client)
-- **User**: `alice` (password: `password123`)
+### NPL Engine (Port 12000)
+- `GET /health` - Health check
+- `POST /npl/evaluate` - Evaluate NPL policies
+- Swagger UI: http://localhost:12000/swagger-ui.html
+
+### Keycloak (Port 11000)
+- Admin Console: http://localhost:11000
+- Realm: `noumena`
+- Default User: `alice` / `password123`
+
+## Development
+
+### A2A Server (TypeScript/Node.js)
+
+```bash
+cd a2a-server
+
+# Install dependencies
+npm install
+
+# Development mode
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+### Adding New A2A Skills
+
+Edit `a2a-server/src/server.ts` to add new agent skills:
+
+```typescript
+const agentSkills: AgentSkill[] = [
+  {
+    id: 'new_skill',
+    name: 'New Skill',
+    description: 'Description of the new skill',
+    examples: ['Example usage 1', 'Example usage 2'],
+    tags: ['tag1', 'tag2']
+  }
+];
+```
+
+### NPL Protocol Development
+
+Create NPL protocols in `src/main/npl-1.0.0/`:
+
+```npl
+package rfp_workflow
+
+@api
+protocol[procurement, finance, legal] RfpWorkflow(var amount: Number) {
+    // Protocol implementation
+}
+```
+
+## Configuration
 
 ### Environment Variables
-Key configuration in `docker-compose.yml`:
-- `ENGINE_ALLOWED_ISSUERS`: Keycloak realm URL
-- `ENGINE_DB_URL`: Postgres connection string
-- `SWAGGER_SECURITY_*`: Swagger UI authentication
 
-## 📁 Project Structure
-```
-├── docker-compose.yml              # Service orchestration
-├── keycloak-complete-realm.json    # Keycloak realm configuration
-├── src/main/npl-1.0.0/demo/       # NPL source code
-├── .npl/deploy.yml                 # NPL CLI configuration
-└── a2a-specs.md                   # Agent2Agent use case specification
-```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NPL_ENGINE_URL` | NPL Engine endpoint | `http://engine:12000` |
+| `KEYCLOAK_URL` | Keycloak endpoint | `http://keycloak:8080` |
+| `KEYCLOAK_REALM` | Keycloak realm | `noumena` |
+| `KEYCLOAK_CLIENT_ID` | Keycloak client ID | `noumena` |
 
-## 🎯 Use Cases
+### Keycloak Setup
 
-This setup is designed for building:
-- **Multi-agent workflows** with policy enforcement
-- **Enterprise-grade agent collaboration** with audit trails
-- **Secure agent-to-agent communication** with fine-grained authorization
-- **Compliance-driven agent ecosystems** with NPL policy engine
+The system includes a pre-configured Keycloak realm with:
+- Realm: `noumena`
+- Client: `noumena` (public client)
+- User: `alice` with password `password123`
+- Roles: `procurement`, `finance`, `legal`, `vendor`
 
-## 🔒 Security Features
+## Testing
 
-- **OAuth2/JWT Authentication** via Keycloak
-- **Fine-grained authorization** via NPL policies
-- **Audit trails** for all agent interactions
-- **State-aware permissions** based on workflow status
-- **Role-based access control** with business constraints
+### Manual Testing
 
-## 🛠️ Development
-
-### Adding New Users
-Edit `keycloak-complete-realm.json` and restart:
 ```bash
-docker compose down
-docker compose up -d
+# Test health endpoints
+curl http://localhost:8000/health
+curl http://localhost:12000/health
+
+# Test agent card
+curl http://localhost:8000/a2a/agent-card
+
+# Test A2A request (requires authentication)
+curl -X POST http://localhost:8000/a2a/request \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "test-1",
+    "method": "policy_check",
+    "params": {
+      "agent_id": "test-agent",
+      "action": "submit_rfp"
+    }
+  }'
 ```
 
-### Deploying NPL Code
-Currently using manual deployment via REST API. NPL CLI deployment is being configured.
+### Automated Testing
 
-### Testing
 ```bash
-# Test authentication
-curl -H "Authorization: Bearer $TOKEN" http://localhost:12000/actuator/health
-
-# Test API endpoints via Swagger UI
-# Open http://localhost:12000/swagger-ui/
+# Run the Node.js test client
+node test_a2a_client.js
 ```
 
-## 📚 Documentation
+## Architecture Benefits
 
-- [NPL Language Reference](https://documentation.noumenadigital.com/)
-- [Keycloak Setup Guide](https://documentation.noumenadigital.com/howto/using-IAM-keycloak/)
-- [Agent2Agent Use Case Specification](./a2a-specs.md)
+1. **Protocol Compliance**: Uses official A2A TypeScript types for full protocol compliance
+2. **Type Safety**: TypeScript provides compile-time type checking and better developer experience
+3. **Scalability**: Node.js/Express provides excellent performance for API endpoints
+4. **Integration**: Seamless integration between A2A protocol and NPL policy engine
+5. **Security**: Keycloak provides enterprise-grade authentication and authorization
+6. **Auditability**: Complete audit trail of all agent interactions and policy decisions
 
-## 🤝 Support
+## Next Steps
 
-For questions and community support:
-- [NOUMENA Community](https://community.noumenadigital.com/)
-- [NPL Documentation](https://documentation.noumenadigital.com/)
+1. **Implement RFP Workflow**: Create NPL protocols for the multi-agent RFP workflow
+2. **Add More Agents**: Extend the system with additional specialized agents
+3. **Enhanced Security**: Implement proper JWT verification with Keycloak
+4. **Monitoring**: Add comprehensive logging and monitoring
+5. **Performance**: Optimize for high-throughput agent interactions
 
----
+## Contributing
 
-**Ready to build your agent2agent applications! 🚀**
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

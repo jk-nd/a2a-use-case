@@ -1,4 +1,5 @@
 services:
+  # PostgreSQL database for NPL engine
   postgres:
     image: postgres:14.13-alpine
     ports:
@@ -7,6 +8,7 @@ services:
       POSTGRES_PASSWORD: welcome123
       POSTGRES_DB: platform
 
+  # Keycloak for IAM
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     ports:
@@ -24,6 +26,7 @@ services:
     volumes:
       - ./keycloak-complete-realm.json:/tmp/keycloak-complete-realm.json:ro
 
+  # NPL Engine
   engine:
     image: ghcr.io/noumenadigital/images/engine:latest
     depends_on:
@@ -40,3 +43,21 @@ services:
       ENGINE_ALLOWED_ISSUERS: "http://keycloak:11000/realms/noumena"
       SWAGGER_SECURITY_AUTH_URL: "http://localhost:11000/realms/noumena"
       SWAGGER_SECURITY_CLIENT_ID: "noumena"
+
+  a2a-server:
+    build:
+      context: ./a2a-server
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8000
+      NPL_ENGINE_URL: http://engine:12000
+      KEYCLOAK_URL: http://keycloak:11000
+      KEYCLOAK_REALM: noumena
+      KEYCLOAK_CLIENT_ID: noumena
+    ports:
+      - "8000:8000"
+    depends_on:
+      - engine
+
+volumes:
+  postgres_data:
