@@ -9,6 +9,8 @@ This project demonstrates the integration of Google's Agent2Agent (A2A) protocol
 - Procurement Agent implemented and tested
 - Agent-to-Agent communication proven
 - Policy enforcement via A2A hub working
+- **NPL Engine fully configured and accessible**
+- **All APIs (Core, Management, Admin, Streaming) working with authentication**
 
 ## Architecture
 
@@ -28,6 +30,7 @@ The system consists of five main components:
 - **Fine-Grained Authorization**: Role-based access control through Keycloak integration
 - **Auditable Operations**: Complete audit trail of agent interactions and policy decisions
 - **Agentic Behavior**: Structured, rule-based agents without LLM dependencies
+- **Full API Access**: All NPL engine APIs (Core, Management, Admin, Streaming) accessible with proper authentication
 
 ## Use Case: Multi-Agent RFP Workflow
 
@@ -72,12 +75,31 @@ curl http://localhost:8000/health
 curl http://localhost:8001/health
 
 # Test NPL engine health
-curl http://localhost:12000/health
+curl http://localhost:12000/actuator/health
 
 # Test Keycloak (admin console at http://localhost:11000)
 ```
 
-### 3. Test Agent Integration
+### 3. Test NPL Engine APIs
+
+```bash
+# Get authentication token
+export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=noumena&username=alice&password=password123" \
+  | jq -r '.access_token')
+
+# Test streaming API
+curl -H "Authorization: Bearer $TOKEN" http://localhost:12000/api/streams
+
+# Test management API
+curl -H "Authorization: Bearer $TOKEN" http://localhost:12400/management/analysis
+
+# Test admin API
+curl -H "Authorization: Bearer $TOKEN" http://localhost:12700/admin/health
+```
+
+### 4. Test Agent Integration
 
 ```bash
 # Test the complete workflow
@@ -85,6 +107,65 @@ node test_procurement_agent.js
 
 # Test A2A server directly
 node test_a2a_client.js
+```
+
+## NPL Engine Configuration
+
+### Key Configuration Learnings
+
+The NPL engine requires specific configuration for proper API access and authentication:
+
+#### 1. **Management and Admin API Access**
+
+By default, the management and admin APIs only bind to `127.0.0.1` (localhost inside the container). To make them accessible from outside the container, add these environment variables:
+
+```yaml
+environment:
+  ENGINE_ADMIN_HOST: 0.0.0.0
+  ENGINE_MANAGEMENT_HOST: 0.0.0.0
+```
+
+#### 2. **Keycloak Issuer Configuration**
+
+For consistent authentication, configure Keycloak to issue tokens with the correct issuer URL:
+
+```yaml
+environment:
+  KC_HOSTNAME: keycloak
+  KC_HOSTNAME_URL: http://keycloak:11000
+  KC_HOSTNAME_ADMIN_URL: http://keycloak:11000
+```
+
+#### 3. **Engine Trusted Issuers**
+
+Configure the engine to trust tokens from Keycloak:
+
+```yaml
+environment:
+  ENGINE_ALLOWED_ISSUERS: "http://keycloak:11000/realms/noumena"
+```
+
+### Available APIs
+
+| API | Port | Purpose | Access |
+|-----|------|---------|--------|
+| **Core API** | 12000 | Protocol operations, streaming | External |
+| **Management API** | 12400 | Code analysis, admin tasks | External (with config) |
+| **Admin API** | 12700 | System administration | External (with config) |
+| **Swagger UI** | 12000 | API documentation | http://localhost:12000/swagger-ui/ |
+
+### Authentication
+
+All APIs require JWT tokens from Keycloak:
+
+```bash
+# Get token
+curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=noumena&username=alice&password=password123"
+
+# Use token
+curl -H "Authorization: Bearer <token>" http://localhost:12000/api/streams
 ```
 
 ## Service Endpoints
@@ -102,17 +183,39 @@ node test_a2a_client.js
   - `submit_rfp` - Submit RFP for approval
   - `track_rfp` - Track RFP status
 
-### NPL Engine (Port 12000)
-- `GET /health` - Health check
-- `POST /npl/evaluate` - Evaluate NPL policies
-- Swagger UI: http://localhost:12000/swagger-ui.html
+### NPL Engine APIs
+
+#### Core API (Port 12000)
+- `GET /actuator/health` - Health check
+- `GET /api/streams` - Real-time protocol updates (SSE)
+- `POST /api/protocols/{protocol}/instances` - Create protocol instances
+- Swagger UI: http://localhost:12000/swagger-ui/
+
+#### Management API (Port 12400)
+- `GET /management/analysis` - Code analysis and deprecation reports
+- `GET /management/health` - Management API health check
+
+#### Admin API (Port 12700)
+- `GET /admin/health` - Admin API health check
+- System administration endpoints
 
 ### Keycloak (Port 11000)
 - Admin Console: http://localhost:11000
 - Realm: `noumena`
 - Default User: `alice` / `password123`
+- Token Endpoint: `http://localhost:11000/realms/noumena/protocol/openid-connect/token`
 
 ## 🧪 **Testing Results**
+
+### NPL Engine Test Results
+```bash
+✅ Health check passed
+✅ Authentication working (JWT tokens accepted)
+✅ Streaming API accessible
+✅ Management API accessible (with proper configuration)
+✅ Admin API accessible (with proper configuration)
+✅ All APIs binding to correct interfaces
+```
 
 ### Procurement Agent Test Results
 ```bash
@@ -229,6 +332,15 @@ protocol[procurement, finance, legal] RfpWorkflow(var amount: Number) {
 | `KEYCLOAK_CLIENT_ID` | Keycloak client ID | `noumena` |
 | `A2A_HUB_URL` | A2A Hub endpoint | `http://a2a-server:8000` |
 
+### NPL Engine Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `ENGINE_ADMIN_HOST` | Admin API binding address | `127.0.0.1` | For external access |
+| `ENGINE_MANAGEMENT_HOST` | Management API binding address | `127.0.0.1` | For external access |
+| `ENGINE_ALLOWED_ISSUERS` | Trusted JWT issuers | - | Required |
+| `ENGINE_DB_SCHEMA` | Database schema | `engine-schema` | Required |
+
 ### Keycloak Setup
 
 The system includes a pre-configured Keycloak realm with:
@@ -245,11 +357,20 @@ The system includes a pre-configured Keycloak realm with:
 # Test health endpoints
 curl http://localhost:8000/health
 curl http://localhost:8001/health
-curl http://localhost:12000/health
+curl http://localhost:12000/actuator/health
 
 # Test agent cards
 curl http://localhost:8000/a2a/agent-card
 curl http://localhost:8001/a2a/agent-card
+
+# Test NPL engine APIs (with authentication)
+export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=noumena&username=alice&password=password123" \
+  | jq -r '.access_token')
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:12000/api/streams
+curl -H "Authorization: Bearer $TOKEN" http://localhost:12400/management/analysis
 
 # Test procurement agent
 curl -X POST http://localhost:8001/a2a/request \
@@ -286,6 +407,7 @@ node test_a2a_client.js
 5. **Security**: Keycloak provides enterprise-grade authentication and authorization
 6. **Auditability**: Complete audit trail of all agent interactions and policy decisions
 7. **Agentic Behavior**: Structured, rule-based agents with predictable behavior
+8. **Full API Access**: All NPL engine APIs accessible with proper configuration and authentication
 
 ## 🚀 **Next Steps**
 

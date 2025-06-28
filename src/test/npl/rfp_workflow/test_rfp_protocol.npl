@@ -1,0 +1,149 @@
+package rfp_workflow
+
+/**
+ * Test for RFP workflow protocol - basic creation and submission
+ */
+@test
+function test_rfp_creation(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-001",
+        title = "Software Development Services",
+        description = "Development of custom software solution",
+        requestedAmount = 50000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+
+    test.assertEquals("RFP-001", workflow.getRfpDetails['procurement-agent']().rfpId, "RFP ID should match");
+    test.assertEquals(50000, workflow.getRfpDetails['procurement-agent']().requestedAmount, "Requested amount should match");
+};
+
+/**
+ * Test for RFP workflow - submission for approval
+ */
+@test
+function test_submit_for_approval(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-002",
+        title = "Hardware Purchase",
+        description = "Purchase of new servers",
+        requestedAmount = 25000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+    workflow.submitForApproval['procurement-agent']();
+
+    test.assertEquals("pendingApproval", workflow.activeState().getOrFail().toText(), "Should be in pendingApproval state");
+};
+
+/**
+ * Test for RFP workflow - budget approval
+ */
+@test
+function test_budget_approval(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-003",
+        title = "Consulting Services",
+        description = "IT consulting for Q4",
+        requestedAmount = 30000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+    workflow.submitForApproval['procurement-agent']();
+    workflow.approveBudget['finance-agent'](25000, "Approved with 5K reduction");
+
+    test.assertEquals("approved", workflow.activeState().getOrFail().toText(), "Should be in approved state");
+    test.assertEquals(25000, workflow.getCurrentBudget['procurement-agent'](), "Current budget should match approved amount");
+    test.assertEquals(true, workflow.getBudgetApproval['procurement-agent']().getOrFail().approved, "Budget should be approved");
+};
+
+/**
+ * Test for RFP workflow - budget rejection
+ */
+@test
+function test_budget_rejection(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-004",
+        title = "Marketing Campaign",
+        description = "Q1 marketing campaign",
+        requestedAmount = 75000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+    workflow.submitForApproval['procurement-agent']();
+    workflow.rejectBudget['finance-agent']("Budget exceeds quarterly limits");
+
+    test.assertEquals("rejected", workflow.activeState().getOrFail().toText(), "Should be in rejected state");
+    test.assertEquals(false, workflow.getBudgetApproval['procurement-agent']().getOrFail().approved, "Budget should be rejected");
+};
+
+/**
+ * Test for RFP workflow - activation after approval
+ */
+@test
+function test_activate_rfp(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-005",
+        title = "Training Program",
+        description = "Employee training program",
+        requestedAmount = 15000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+    workflow.submitForApproval['procurement-agent']();
+    workflow.approveBudget['finance-agent'](15000, "Full amount approved");
+    workflow.activateRfp['procurement-agent']();
+
+    test.assertEquals("active", workflow.activeState().getOrFail().toText(), "Should be in active state");
+};
+
+/**
+ * Test for RFP workflow - cancellation by procurement
+ */
+@test
+function test_cancel_by_procurement(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-006",
+        title = "Office Supplies",
+        description = "Monthly office supplies",
+        requestedAmount = 5000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+    workflow.cancelRfp['procurement-agent']();
+
+    test.assertEquals("cancelled", workflow.activeState().getOrFail().toText(), "Should be in cancelled state");
+};
+
+/**
+ * Test for RFP workflow - cancellation by finance
+ */
+@test
+function test_cancel_by_finance(test: Test) -> {
+    var rfpRequest = RfpRequest(
+        rfpId = "RFP-007",
+        title = "Travel Expenses",
+        description = "Business travel expenses",
+        requestedAmount = 12000,
+        requesterId = "procurement-agent",
+        createdAt = now()
+    );
+
+    var workflow = RfpWorkflow['procurement-agent', 'finance-agent'](rfpRequest);
+    workflow.submitForApproval['procurement-agent']();
+    workflow.cancelRfpByFinance['finance-agent']();
+
+    test.assertEquals("cancelled", workflow.activeState().getOrFail().toText(), "Should be in cancelled state");
+}; 

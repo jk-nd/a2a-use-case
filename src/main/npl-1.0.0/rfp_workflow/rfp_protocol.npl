@@ -1,0 +1,162 @@
+package rfp_workflow
+
+/**
+ * Struct to represent an RFP request with budget information
+ * @param rfpId Unique identifier for the RFP
+ * @param title Title of the RFP
+ * @param description Description of the RFP
+ * @param requestedAmount Amount requested for the RFP
+ * @param requesterId ID of the requesting agent
+ * @param createdAt Timestamp when the RFP was created
+ */
+struct RfpRequest {
+    rfpId: Text,
+    title: Text,
+    description: Text,
+    requestedAmount: Number,
+    requesterId: Text,
+    createdAt: DateTime
+};
+
+/**
+ * Struct to represent budget approval response
+ * @param approved Whether the budget was approved
+ * @param approvedAmount Amount approved (may be less than requested)
+ * @param reason Reason for approval or rejection
+ * @param approverId ID of the approving agent
+ * @param approvedAt Timestamp when approval was given
+ */
+struct BudgetApproval {
+    approved: Boolean,
+    approvedAmount: Number,
+    reason: Text,
+    approverId: Text,
+    approvedAt: DateTime
+};
+
+/**
+ * RFP Workflow Protocol connecting procurement and finance agents
+ * @param procurementAgent The procurement agent party
+ * @param financeAgent The finance agent party
+ * @param initialRfp The initial RFP request
+ */
+@api
+protocol[procurementAgent, financeAgent] RfpWorkflow(var initialRfp: RfpRequest) {
+    require(initialRfp.requestedAmount > 0, "Requested amount must be positive");
+    require(initialRfp.rfpId.length() > 0, "RFP ID cannot be empty");
+
+    // States
+    initial state draft;
+    state pendingApproval;
+    state approved;
+    final state rejected;
+    final state active;
+    final state cancelled;
+
+    // Private variables
+    private var rfp = initialRfp;
+    private var budgetApproval: Optional<BudgetApproval> = optionalOf<BudgetApproval>();
+    private var currentBudget = 0;
+
+    /**
+     * Permission for either agent to get RFP details
+     * @return The current RFP request
+     */
+    @api
+    permission[procurementAgent | financeAgent] getRfpDetails() returns RfpRequest | draft, pendingApproval, approved, rejected, active, cancelled {
+        return rfp;
+    };
+
+    /**
+     * Permission for procurement agent to submit RFP for budget approval
+     */
+    @api
+    permission[procurementAgent] submitForApproval() | draft {
+        become pendingApproval;
+    };
+
+    /**
+     * Permission for finance agent to approve the budget
+     * @param approvedAmount Amount approved (may be less than requested)
+     * @param reason Reason for approval
+     */
+    @api
+    permission[financeAgent] approveBudget(approvedAmount: Number, reason: Text) | pendingApproval {
+        require(approvedAmount >= 0, "Approved amount must be non-negative");
+        require(reason.length() > 0, "Reason cannot be empty");
+
+        var approval = BudgetApproval(
+            approved = true,
+            approvedAmount = approvedAmount,
+            reason = reason,
+            approverId = "finance-agent",
+            approvedAt = now()
+        );
+
+        budgetApproval = optionalOf(approval);
+        currentBudget = approvedAmount;
+        become approved;
+    };
+
+    /**
+     * Permission for finance agent to reject the budget
+     * @param reason Reason for rejection
+     */
+    @api
+    permission[financeAgent] rejectBudget(reason: Text) | pendingApproval {
+        require(reason.length() > 0, "Reason cannot be empty");
+
+        var approval = BudgetApproval(
+            approved = false,
+            approvedAmount = 0,
+            reason = reason,
+            approverId = "finance-agent",
+            approvedAt = now()
+        );
+
+        budgetApproval = optionalOf(approval);
+        become rejected;
+    };
+
+    /**
+     * Permission for procurement agent to activate the RFP after approval
+     */
+    @api
+    permission[procurementAgent] activateRfp() | approved {
+        become active;
+    };
+
+    /**
+     * Permission for procurement agent to cancel the RFP
+     */
+    @api
+    permission[procurementAgent] cancelRfp() | draft, pendingApproval, approved {
+        become cancelled;
+    };
+
+    /**
+     * Permission for finance agent to cancel the RFP
+     */
+    @api
+    permission[financeAgent] cancelRfpByFinance() | pendingApproval {
+        become cancelled;
+    };
+
+    /**
+     * Permission for either agent to get current budget
+     * @return The current available budget amount
+     */
+    @api
+    permission[procurementAgent | financeAgent] getCurrentBudget() returns Number | draft, pendingApproval, approved, rejected, active, cancelled {
+        return currentBudget;
+    };
+
+    /**
+     * Permission for either agent to get budget approval status
+     * @return The budget approval if present
+     */
+    @api
+    permission[procurementAgent | financeAgent] getBudgetApproval() returns Optional<BudgetApproval> | draft, pendingApproval, approved, rejected, active, cancelled {
+        return budgetApproval;
+    };
+} 

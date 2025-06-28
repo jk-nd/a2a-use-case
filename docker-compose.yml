@@ -17,6 +17,9 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_HTTP_PORT: 11000
+      KC_HOSTNAME: keycloak
+      KC_HOSTNAME_URL: http://keycloak:11000
+      KC_HOSTNAME_ADMIN_URL: http://keycloak:11000
     command: start-dev --import-realm
     entrypoint: |
       /bin/sh -c "
@@ -43,6 +46,9 @@ services:
       ENGINE_ALLOWED_ISSUERS: "http://keycloak:11000/realms/noumena"
       SWAGGER_SECURITY_AUTH_URL: "http://localhost:11000/realms/noumena"
       SWAGGER_SECURITY_CLIENT_ID: "noumena"
+      # Management API configuration - bind to all interfaces
+      ENGINE_ADMIN_HOST: 0.0.0.0
+      ENGINE_MANAGEMENT_HOST: 0.0.0.0
 
   a2a-server:
     build:
