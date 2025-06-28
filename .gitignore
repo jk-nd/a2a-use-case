@@ -67,6 +67,9 @@ build/
 dist/
 target/
 
+# Deployment artifacts
+*.zip
+
 # Database files
 *.db
 *.sqlite
