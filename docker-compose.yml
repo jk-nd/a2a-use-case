@@ -59,5 +59,18 @@ services:
     depends_on:
       - engine
 
+  # Procurement Agent
+  procurement-agent:
+    build:
+      context: ./procurement-agent
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8001
+      A2A_HUB_URL: http://a2a-server:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - a2a-server
+
 volumes:
   postgres_data:
