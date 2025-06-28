@@ -81,7 +81,82 @@ curl http://localhost:12000/actuator/health
 # Test Keycloak (admin console at http://localhost:11000)
 ```
 
-### 3. Test NPL Engine APIs
+### 3. User Provisioning
+
+The A2A workflow requires both human users and agent users to be provisioned in Keycloak. Use the provided scripts for systematic user management:
+
+```bash
+# Install dependencies
+npm install axios
+
+# Provision all users (humans and agents)
+node provision-users.js
+
+# Test user authentication
+node test-user-provisioning.js
+```
+
+#### User Configuration
+
+The user provisioning system is configured via `user-config.json`:
+
+```json
+{
+  "realm": "a2a-realm",
+  "users": {
+    "humans": [
+      {
+        "username": "buyer",
+        "email": "buyer@company.com",
+        "attributes": {
+          "role": ["buyer"],
+          "organization": ["company-a"],
+          "permissions": ["create_rfp", "review_proposals"]
+        }
+      }
+    ],
+    "agents": [
+      {
+        "username": "procurement_agent",
+        "email": "procurement-agent@company.com",
+        "attributes": {
+          "role": ["agent"],
+          "agent_type": ["procurement"],
+          "capabilities": ["rfp_creation", "proposal_evaluation"],
+          "api_endpoint": ["http://localhost:3001/api"]
+        }
+      }
+    ]
+  }
+}
+```
+
+#### Provisioned Users
+
+| Type | Username | Role | Organization | Purpose |
+|------|----------|------|--------------|---------|
+| Human | `buyer` | Buyer | Company A | Create RFPs, review proposals |
+| Human | `supplier` | Supplier | Vendor B | Submit proposals, track deliveries |
+| Human | `finance_manager` | Finance Manager | Company A | Approve budgets, process payments |
+| Agent | `procurement_agent` | Procurement Agent | Company A | Automated RFP management |
+| Agent | `finance_agent` | Finance Agent | Company A | Automated financial operations |
+| Agent | `supplier_agent` | Supplier Agent | Vendor B | Automated proposal generation |
+
+#### Testing User Authentication
+
+```bash
+# Test individual user authentication
+curl -X POST http://localhost:8080/realms/a2a-realm/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=npl-engine&username=buyer&password=password123"
+
+# Test agent authentication
+curl -X POST http://localhost:8080/realms/a2a-realm/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=npl-engine&username=procurement_agent&password=agent-password-123"
+```
+
+### 4. Test NPL Engine APIs
 
 ```bash
 # Get authentication token
@@ -548,3 +623,68 @@ node test_a2a_client.js
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Running the RFP Protocol Integration Test
+
+### Prerequisites
+- The Noumena NPL engine, Keycloak, and Postgres must be running via Docker Compose (see above).
+- Users must be provisioned in Keycloak as described in `user-config.json` (see user provisioning script).
+- The RFP protocol must be deployed to the NPL engine (see deployment instructions above).
+- Node.js dependencies must be installed (`npm install` if needed).
+
+### How to Run the Test
+
+Run the following command from the project root:
+
+```sh
+node test_rfp_integration.js
+```
+
+### What the Test Does
+- Authenticates as the procurement and finance agents using Keycloak.
+- Creates a new RFP protocol instance via the NPL API, passing the required parties and initial RFP data.
+- Uses the protocol ID (`@id`) from the creation response for all subsequent API calls (not the business `rfpId`).
+- Exercises the main workflow:
+  1. **Create** RFP (state: `draft`)
+  2. **Submit for Approval** (state: `pendingApproval`)
+  3. **Approve Budget** (state: `approved`)
+  4. **Activate RFP** (state: `active`)
+- Verifies that each state transition is successful and prints the current state after each step.
+
+### Example Output
+```
+🧪 Starting RFP Protocol Integration Tests...
+🔑 Getting access tokens...
+✅ Tokens obtained successfully
+📝 Test 1: Creating RFP Request as procurement agent...
+✅ RFP Request created: {...}
+📋 RFP ID: rfp-...
+📋 Protocol ID: ...
+👀 Test 2: Retrieving RFP Request as procurement agent...
+✅ RFP Request retrieved: {...}
+📋 Status: draft
+📤 Test 3: Submitting RFP for approval as procurement agent...
+✅ RFP Submitted for approval: {...}
+📋 Status: pendingApproval
+💰 Test 4: Approving budget as finance agent...
+✅ Budget Approved: {...}
+📋 Status: approved
+🚦 Test 5: Activating RFP as procurement agent...
+✅ RFP Activated: {...}
+📋 Status: active
+📊 Test 6: Checking final state...
+✅ Final state retrieved: {...}
+📋 Final Status: active
+🎉 All integration tests passed successfully!
+📈 Workflow Summary:
+   draft → pendingApproval → approved → active
+   ✅ All state transitions completed successfully!
+```
+
+### Troubleshooting
+- Ensure the correct party names are used in the test (`procurementAgent`, `financeAgent`).
+- Always use the protocol ID (`@id`) from the creation response for subsequent API calls.
+- If authentication fails, check user credentials in `user-config.json` and Keycloak.
+- If the protocol is not found, verify that the protocol was deployed and the correct ID is used.
+
+---

@@ -1,0 +1,128 @@
+{
+  "realm": "noumena",
+  "keycloak": {
+    "url": "http://localhost:11000",
+    "admin_username": "admin",
+    "admin_password": "admin"
+  },
+  "users": {
+    "humans": [
+      {
+        "username": "buyer",
+        "email": "buyer@company.com",
+        "firstName": "John",
+        "lastName": "Buyer",
+        "password": "password123",
+        "attributes": {
+          "role": ["buyer"],
+          "organization": ["company-a"],
+          "department": ["procurement"],
+          "permissions": ["create_rfp", "review_proposals", "approve_contracts"]
+        }
+      },
+      {
+        "username": "supplier",
+        "email": "supplier@vendor.com",
+        "firstName": "Jane",
+        "lastName": "Supplier",
+        "password": "password123",
+        "attributes": {
+          "role": ["supplier"],
+          "organization": ["vendor-b"],
+          "specialization": ["software-development"],
+          "permissions": ["view_rfps", "submit_proposals", "track_deliveries"]
+        }
+      },
+      {
+        "username": "finance_manager",
+        "email": "finance@company.com",
+        "firstName": "Mike",
+        "lastName": "Finance",
+        "password": "password123",
+        "attributes": {
+          "role": ["finance_manager"],
+          "organization": ["company-a"],
+          "department": ["finance"],
+          "permissions": ["approve_budgets", "process_payments", "financial_reports"]
+        }
+      }
+    ],
+    "agents": [
+      {
+        "username": "procurement_agent",
+        "email": "procurement-agent@company.com",
+        "firstName": "Procurement",
+        "lastName": "Agent",
+        "password": "agent-password-123",
+        "attributes": {
+          "role": ["agent"],
+          "agent_type": ["procurement"],
+          "organization": ["company-a"],
+          "capabilities": ["rfp_creation", "proposal_evaluation", "contract_management"],
+          "api_endpoint": ["http://localhost:3001/api"],
+          "permissions": ["automated_rfp_creation", "proposal_analysis", "contract_generation"]
+        }
+      },
+      {
+        "username": "finance_agent",
+        "email": "finance-agent@company.com",
+        "firstName": "Finance",
+        "lastName": "Agent",
+        "password": "agent-password-123",
+        "attributes": {
+          "role": ["agent"],
+          "agent_type": ["finance"],
+          "organization": ["company-a"],
+          "capabilities": ["budget_approval", "payment_processing", "financial_analysis"],
+          "api_endpoint": ["http://localhost:3002/api"],
+          "permissions": ["automated_budget_approval", "payment_processing", "financial_reporting"]
+        }
+      },
+      {
+        "username": "supplier_agent",
+        "email": "supplier-agent@vendor.com",
+        "firstName": "Supplier",
+        "lastName": "Agent",
+        "password": "agent-password-123",
+        "attributes": {
+          "role": ["agent"],
+          "agent_type": ["supplier"],
+          "organization": ["vendor-b"],
+          "capabilities": ["proposal_generation", "delivery_tracking", "invoicing"],
+          "api_endpoint": ["http://localhost:3003/api"],
+          "permissions": ["automated_proposal_generation", "delivery_tracking", "invoice_processing"]
+        }
+      }
+    ]
+  },
+  "organizations": {
+    "company-a": {
+      "name": "Company A",
+      "type": "buyer",
+      "domains": ["company.com"],
+      "agents": ["procurement_agent", "finance_agent"]
+    },
+    "vendor-b": {
+      "name": "Vendor B",
+      "type": "supplier",
+      "domains": ["vendor.com"],
+      "agents": ["supplier_agent"]
+    }
+  },
+  "workflows": {
+    "rfp_process": {
+      "participants": {
+        "buyer": ["buyer", "procurement_agent"],
+        "supplier": ["supplier", "supplier_agent"],
+        "finance": ["finance_manager", "finance_agent"]
+      },
+      "stages": [
+        "rfp_creation",
+        "proposal_submission",
+        "proposal_evaluation",
+        "contract_approval",
+        "contract_execution"
+      ]
+    }
+  }
+} 
