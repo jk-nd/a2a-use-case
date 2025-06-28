@@ -1,0 +1,73 @@
+tags
+.eclipse_workspace
+.classpath
+.project
+.settings
+.DS_Store
+.idea
+*.iml
+.*.swp
+*.tokens
+.npl
+.vscode
+.cursorrules
+
+# NPL specific
+.npl/cache/
+.npl/logs/
+*.nplc
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Temporary folders
+tmp/
+temp/
+
+# Docker
+.dockerignore
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node modules (if any Node.js tools are used)
+node_modules/
+
+# Build outputs
+build/
+dist/
+target/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
