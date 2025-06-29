@@ -2,16 +2,59 @@
 
 This project demonstrates the integration of Google's Agent2Agent (A2A) protocol with the NOUMENA Protocol Language (NPL) for policy enforcement in multi-agent workflows.
 
-## 🎯 **Current Status: Phase 1 Complete**
+## 🎯 **Current Status: A2A Integration Complete! ✅**
 
-✅ **Minimal wiring implemented and tested**
-- A2A Server (policy hub) working
+✅ **Full A2A workflow implemented and tested**
+- A2A Server (policy hub) working with automated code generation
 - Procurement Agent implemented and tested
-- Agent-to-Agent communication proven
-- Policy enforcement via A2A hub working
-- **NPL Engine fully configured and accessible**
-- **All APIs (Core, Management, Admin, Streaming) working with authentication**
-- **RFP Protocol deployed and ready for integration**
+- Finance Agent implemented and tested
+- Agent-to-Agent communication via A2A protocol proven
+- Policy enforcement via NPL engine working
+- **Complete RFP workflow tested end-to-end**
+- **All A2A method calls successful**
+- **All state transitions working**
+- **Message passing between agents and A2A server working**
+
+## 🧪 **Latest Test Results: A2A RFP Flow Integration**
+
+### ✅ **Successful End-to-End Test**
+
+The complete A2A RFP workflow has been successfully tested and is working:
+
+```bash
+🎉 A2A RFP Flow Integration Test completed successfully!
+📈 Workflow Summary:
+   draft → pendingApproval → approved → active
+   ✅ All A2A method calls completed successfully!
+   ✅ All state transitions completed successfully!
+   ✅ Message passing between agents and A2A server working!
+
+📊 Final RFP Details:
+   RFP ID: rfp-a2a-1751160577228
+   Protocol ID: f423ba18-780d-4339-ad07-4d4fe74769b8
+   Final State: active
+   Requested Amount: $75000
+   Approved Amount: $75000
+```
+
+### ✅ **Tested A2A Methods**
+
+All A2A methods are working correctly:
+
+1. **`submitforapproval`** - Procurement agent submits RFP for approval
+2. **`approvebudget`** - Finance agent approves budget with parameters
+3. **`activaterfp`** - Procurement agent activates approved RFP
+4. **`getrfpdetails`** - Query RFP details
+5. **`getcurrentbudget`** - Query current budget amount
+6. **`getbudgetapproval`** - Query budget approval status
+
+### ✅ **Integration Architecture Working**
+
+- **Code Generation**: A2A methods automatically generated from NPL OpenAPI
+- **Parameter Passing**: Method parameters correctly passed to NPL engine
+- **State Management**: All protocol state transitions working
+- **Authentication**: Multi-IdP token validation working
+- **Response Handling**: Empty responses and JSON responses handled correctly
 
 ## Architecture
 
@@ -274,19 +317,12 @@ curl -X POST http://localhost:8080/realms/a2a-realm/protocol/openid-connect/toke
 
 ```bash
 # Get authentication token
-export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
+curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=noumena&username=alice&password=password123" \
-  | jq -r '.access_token')
+  -d "grant_type=password&client_id=noumena&username=alice&password=password123"
 
-# Test streaming API
-curl -H "Authorization: Bearer $TOKEN" http://localhost:12000/api/streams
-
-# Test management API
-curl -H "Authorization: Bearer $TOKEN" http://localhost:12400/management/analysis
-
-# Test admin API
-curl -H "Authorization: Bearer $TOKEN" http://localhost:12700/admin/health
+# Use token
+curl -H "Authorization: Bearer <token>" http://localhost:12000/api/streams
 ```
 
 ### 4. Test Agent Integration
@@ -363,14 +399,13 @@ zip -r ../../protocol.zip .
 cd ../..
 
 # 2. Get authentication token
-export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
+curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=noumena&username=alice&password=password123" \
-  | jq -r '.access_token')
+  -d "grant_type=password&client_id=noumena&username=alice&password=password123"
 
 # 3. Deploy via Management API
 curl -X PUT http://localhost:12400/management/application \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer <token>" \
   -F "archive=@protocol.zip" \
   -F "tag=my-protocol-1.0.0" \
   -F "uploadOrigin=MyProject@$(hostname)"
@@ -389,14 +424,14 @@ After deployment, verify the protocol is available:
 
 ```bash
 # Check deployment metadata
-curl -H "Authorization: Bearer $TOKEN" \
+curl -H "Authorization: Bearer <token>" \
   http://localhost:12400/management/application/deployment-metadata/latest
 
 # Check if protocol appears in Swagger UI
 curl -s http://localhost:12000/swagger-ui/index.html | grep -i "your-protocol-name"
 
 # Test protocol endpoints
-curl -H "Authorization: Bearer $TOKEN" \
+curl -H "Authorization: Bearer <token>" \
   http://localhost:12000/npl/your_package/-/openapi.json
 ```
 
@@ -408,13 +443,13 @@ cd src/main && zip -r ../../rfp-protocol.zip . && cd ../..
 
 # Deploy RFP protocol
 curl -X PUT http://localhost:12400/management/application \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer <token>" \
   -F "archive=@rfp-protocol.zip" \
   -F "tag=rfp-workflow-1.0.0" \
   -F "uploadOrigin=A2A-Project@$(hostname)"
 
 # Verify deployment
-curl -H "Authorization: Bearer $TOKEN" \
+curl -H "Authorization: Bearer <token>" \
   http://localhost:12000/npl/rfp_workflow/-/openapi.json | jq '.paths | keys'
 ```
 
@@ -778,7 +813,82 @@ node test_finance_agent.js
 
 # Test RFP integration
 node test_rfp_integration.js
+
+# 🆕 Test complete A2A RFP workflow
+node test_a2a_rfp_flow.js
 ```
+
+## 🆕 **A2A Integration Testing**
+
+### Running the Complete A2A RFP Flow Test
+
+The most comprehensive test demonstrates the full A2A integration:
+
+```bash
+# Run the complete A2A RFP workflow test
+node test_a2a_rfp_flow.js
+```
+
+### What the A2A Test Does
+
+This test demonstrates the complete integration between Google's A2A protocol and the NPL engine:
+
+1. **Authentication**: Gets JWT tokens for procurement and finance agents from Keycloak
+2. **Protocol Creation**: Creates a new RFP protocol instance via NPL engine
+3. **A2A Method Calls**: Uses A2A protocol to call NPL methods:
+   - `submitforapproval` - Procurement agent submits RFP for approval
+   - `approvebudget` - Finance agent approves budget with parameters
+   - `activaterfp` - Procurement agent activates approved RFP
+4. **State Verification**: Verifies each state transition via NPL engine
+5. **Query Methods**: Tests additional A2A methods for data retrieval
+
+### Expected Output
+
+```
+🧪 Starting A2A RFP Flow Integration Test...
+
+🔑 Getting access tokens for agents...
+✅ Tokens obtained successfully
+
+📝 Step 1: Creating new RFP workflow instance...
+✅ RFP workflow created with protocol ID: f423ba18-780d-4339-ad07-4d4fe74769b8
+📋 Initial state: draft
+
+📤 Step 2: Procurement Agent submits RFP for approval via A2A...
+🤖 Procurement Agent sending A2A request: submitforapproval
+📥 A2A Response to Procurement Agent: { "success": true, ... }
+✅ Procurement Agent received response for submitforapproval
+📋 State after submission: pendingApproval
+
+💰 Step 3: Finance Agent approves budget via A2A...
+🤖 Finance Agent sending A2A request: approvebudget
+📥 A2A Response to Finance Agent: { "success": true, ... }
+✅ Finance Agent received response for approvebudget
+📋 State after budget approval: approved
+
+🚦 Step 4: Procurement Agent activates RFP via A2A...
+🤖 Procurement Agent sending A2A request: activaterfp
+📥 A2A Response to Procurement Agent: { "success": true, ... }
+✅ Procurement Agent received response for activaterfp
+📋 Final state: active
+
+🎉 A2A RFP Flow Integration Test completed successfully!
+📈 Workflow Summary:
+   draft → pendingApproval → approved → active
+   ✅ All A2A method calls completed successfully!
+   ✅ All state transitions completed successfully!
+   ✅ Message passing between agents and A2A server working!
+```
+
+### Key Integration Features Demonstrated
+
+- **JSON-RPC 2.0 Protocol**: Full A2A protocol compliance
+- **Method Generation**: A2A methods automatically generated from NPL OpenAPI
+- **Parameter Passing**: Method parameters correctly passed to NPL engine
+- **State Management**: All protocol state transitions working
+- **Multi-Agent Workflow**: Procurement and Finance agents collaborating
+- **Policy Enforcement**: NPL policies enforced through A2A calls
+- **Response Handling**: Both empty and JSON responses handled correctly
 
 ## Architecture Benefits
 
@@ -797,22 +907,31 @@ node test_rfp_integration.js
 
 ## 🚀 **Next Steps**
 
+### ✅ **Phase 1 Complete: A2A Integration**
+- **A2A Protocol Implementation**: ✅ Complete with Google's A2A protocol
+- **NPL Engine Integration**: ✅ Complete with automated code generation
+- **Multi-Agent Workflow**: ✅ Complete with Procurement and Finance agents
+- **Policy Enforcement**: ✅ Complete with NPL protocol state management
+- **End-to-End Testing**: ✅ Complete with full workflow validation
+
 ### Phase 2: Add LLM Capabilities
 - **RFP Content Generation**: Use LLM to fill detailed RFP descriptions
 - **Natural Language Interface**: Allow conversational agent interactions
 - **Intelligent Routing**: Route requests based on content analysis
+- **Smart Agent Behavior**: Add LLM-powered decision making to agents
 
 ### Phase 3: Complete Multi-Agent Workflow
-1. **Finance Agent**: Implement budget approval workflows
-2. **Legal Agent**: Implement contract review processes
-3. **Vendor Onboarding Agent**: Implement vendor registration
-4. **NPL Protocols**: Deploy comprehensive business rules
+1. **Legal Agent**: Implement contract review processes
+2. **Vendor Onboarding Agent**: Implement vendor registration
+3. **Compliance Agent**: Implement regulatory compliance checks
+4. **Advanced NPL Protocols**: Deploy comprehensive business rules
 
 ### Phase 4: Production Readiness
-1. **Enhanced Security**: Implement proper JWT verification
+1. **Enhanced Security**: Implement proper JWT verification with multiple IdPs
 2. **Monitoring**: Add comprehensive logging and monitoring
 3. **Performance**: Optimize for high-throughput agent interactions
 4. **Testing**: Add comprehensive unit and integration tests
+5. **Deployment**: Production deployment with Kubernetes
 
 ## Contributing
 
