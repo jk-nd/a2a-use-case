@@ -1,7 +1,8 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import { Request, Response, NextFunction } from 'express';
 
 // Load environment variables
 dotenv.config();
@@ -91,14 +92,15 @@ function validateToken(token: string) {
 /**
  * Handle listMyProtocols discovery method
  */
-async function handleListMyProtocols(params: any, token: string, res: Response) {
+async function handleListMyProtocols(params: any, token: string, res: Response): Promise<void> {
     try {
         const { package: pkg, protocol } = params;
         
         if (!pkg || !protocol) {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'Missing required parameters: package, protocol'
             });
+            return;
         }
 
         // Query NPL engine with agent's token
@@ -116,7 +118,11 @@ async function handleListMyProtocols(params: any, token: string, res: Response) 
             throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
         }
 
-        const protocols = await nplResponse.json() as any[];
+        const nplData = await nplResponse.json() as { items?: any[]; page?: number };
+        
+        // NPL engine returns { items: [...], page: 1 }
+        // Extract the items array for the response
+        const protocols = nplData.items || [];
 
         res.json({
             success: true,
@@ -143,14 +149,15 @@ async function handleListMyProtocols(params: any, token: string, res: Response) 
 /**
  * Handle getMyProtocolContent discovery method
  */
-async function handleGetMyProtocolContent(params: any, token: string, res: Response) {
+async function handleGetMyProtocolContent(params: any, token: string, res: Response): Promise<void> {
     try {
         const { protocolId, package: pkg, protocol } = params;
         
         if (!protocolId || !pkg || !protocol) {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'Missing required parameters: protocolId, package, protocol'
             });
+            return;
         }
 
         // Query NPL engine with agent's token
@@ -229,14 +236,15 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // A2A method execution endpoint (NPL Integration)
-app.post('/a2a/method', async (req: Request, res: Response) => {
+app.post('/a2a/method', async (req: Request, res: Response): Promise<void> => {
     try {
         const { package: pkg, protocol, method, params = {}, token } = req.body;
 
         if (!pkg || !protocol || !method || !token) {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'Missing required parameters: package, protocol, method, token'
             });
+            return;
         }
 
         // Validate token at A2A level
@@ -257,9 +265,10 @@ app.post('/a2a/method', async (req: Request, res: Response) => {
         console.log(`Routing to NPL engine: ${pkg}.${protocol}.${method}`);
         const mapping = findMethodMapping(pkg, protocol, method);
         if (!mapping) {
-            return res.status(404).json({
+            res.status(404).json({
                 error: `Method ${method} not found for ${pkg}.${protocol}`
             });
+            return;
         }
         const result = await executeMethod(mapping.operationId, {
             ...params,
