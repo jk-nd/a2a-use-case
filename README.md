@@ -17,11 +17,125 @@ This project demonstrates the integration of Google's Agent2Agent (A2A) protocol
 
 The system consists of five main components:
 
-1. **A2A Server** (Node.js/TypeScript) - Policy enforcement hub and agent communication
+1. **A2A Server** (Node.js/TypeScript) - Policy enforcement hub and agent communication with **automated code generation from NPL OpenAPI**
 2. **Procurement Agent** (Node.js/TypeScript) - Handles RFP creation and submission
 3. **NPL Engine** - Policy engine for enforcing business rules and state transitions
 4. **Keycloak** - Identity and Access Management (IAM) for authentication and authorization
 5. **PostgreSQL** - Database for NPL engine state persistence
+
+## A2A Server Architecture: Code Generation from NPL OpenAPI
+
+The A2A Server implements a **code generation architecture** that automatically creates A2A protocol methods from NPL OpenAPI specifications:
+
+### Code Generation Strategy
+
+The A2A Server uses a **code generation approach** to automatically create method handlers from NPL OpenAPI specifications:
+
+1. **OpenAPI Discovery**: Fetches NPL protocol OpenAPI specs from the engine
+2. **Method Generation**: Automatically generates TypeScript method handlers for each NPL protocol permission
+3. **A2A Protocol Compliance**: Exposes NPL protocols as standard A2A methods
+4. **Type Safety**: Maintains full TypeScript type safety throughout the integration
+
+### Generated Components
+
+The code generator creates three key components:
+
+#### 1. Method Handlers (`src/method-handlers.js`)
+```typescript
+// Auto-generated from NPL OpenAPI
+export const nplMethodHandlers = {
+  'rfp_workflow.RfpWorkflow.createRfp': async (params, auth) => {
+    // Handles RFP creation via NPL engine
+  },
+  'rfp_workflow.RfpWorkflow.submitForApproval': async (params, auth) => {
+    // Handles RFP submission via NPL engine
+  }
+  // ... more handlers generated for each protocol permission
+};
+```
+
+#### 2. Method Mappings (`src/method-mappings.js`)
+```typescript
+// Maps A2A method names to NPL handlers
+export const methodMappings = {
+  'create_rfp': 'rfp_workflow.RfpWorkflow.createRfp',
+  'submit_rfp': 'rfp_workflow.RfpWorkflow.submitForApproval',
+  // ... mappings for all available methods
+};
+```
+
+#### 3. Agent Skills (`src/agent-skills.js`)
+```typescript
+// Auto-generated agent capabilities from NPL protocols
+export const agentSkills = [
+  {
+    id: 'create_rfp',
+    name: 'Create RFP',
+    description: 'Create a new Request for Proposal',
+    examples: ['Create RFP for software development'],
+    tags: ['rfp', 'procurement']
+  }
+  // ... skills generated for each protocol method
+];
+```
+
+### Request Flow
+
+```
+A2A Request → A2A Server → Method Router → Generated Handler → NPL Engine
+     ↓              ↓           ↓              ↓              ↓
+  JSON-RPC    Authentication  Mapping    Protocol      Policy
+  Protocol    & Validation    Logic      Instance      Enforcement
+```
+
+### Multi-IdP Support
+
+The architecture supports **multiple Identity Providers** for cross-organization agent collaboration:
+
+- **A2A Server & NPL Engine**: Use shared Keycloak as trusted broker
+- **Agent Organizations**: Can use separate Keycloaks with different IdPs
+- **Dynamic Validation**: A2A service validates tokens from multiple IdPs based on JWT issuer claims
+- **Party Binding**: NPL protocols dynamically bind parties to actual users at runtime
+
+### Code Generation Process
+
+```bash
+# Generate handlers from NPL OpenAPI
+node generate-a2a-methods.js
+
+# This script:
+# 1. Fetches OpenAPI specs from NPL engine
+# 2. Parses NPL-specific protocol structure
+# 3. Generates TypeScript handlers for each permission
+# 4. Creates method mappings and agent skills
+# 5. Updates server configuration
+```
+
+### Benefits of This Architecture
+
+1. **Zero Manual Integration**: No need to manually write NPL integration code
+2. **Protocol Compliance**: Full Google A2A protocol compliance with generated handlers
+3. **Type Safety**: Complete TypeScript type safety across the entire stack
+4. **Dynamic Updates**: New NPL protocols automatically generate new A2A methods
+5. **Multi-IdP Ready**: Supports agents from different organizations with different IdPs
+6. **Maintainable**: Clear separation between generated and custom code
+7. **Scalable**: Easy to add new protocols without code changes
+8. **NPL-First**: All business logic and policy enforcement happens in NPL
+
+### File Structure
+
+```
+a2a-server/
+├── src/
+│   ├── server.js              # Main A2A server with generated routing
+│   ├── method-handlers.js     # Generated NPL method handlers
+│   ├── method-mappings.js     # Generated method name mappings
+│   ├── agent-skills.js        # Generated agent capabilities
+│   └── types.ts              # TypeScript type definitions
+├── generate-a2a-methods.js    # Code generation script
+├── package.json              # Dependencies and scripts
+└── README.md                 # A2A server documentation
+```
 
 ## Features
 
@@ -428,6 +542,9 @@ cd a2a-server
 # Install dependencies
 npm install
 
+# Generate NPL method handlers from OpenAPI
+node generate-a2a-methods.js
+
 # Development mode
 npm run dev
 
@@ -437,6 +554,47 @@ npm run build
 # Start production server
 npm start
 ```
+
+#### Code Generation Workflow
+
+The A2A Server uses automated code generation to create NPL integration handlers:
+
+```bash
+# 1. Generate handlers from NPL OpenAPI specs
+node generate-a2a-methods.js
+
+# 2. Verify generated files
+ls -la src/
+# Should show: method-handlers.js, method-mappings.js, agent-skills.js
+
+# 3. Start server with generated handlers
+npm start
+```
+
+#### Generated Files
+
+After running the generator, these files are created/updated:
+
+- **`src/method-handlers.js`** - TypeScript handlers for each NPL protocol permission
+- **`src/method-mappings.js`** - Mapping between A2A method names and NPL handlers  
+- **`src/agent-skills.js`** - Agent capabilities derived from NPL protocols
+
+#### Adding New NPL Protocols
+
+When you deploy new NPL protocols to the engine:
+
+1. **Deploy protocol to NPL engine** (see NPL Protocol Deployment section)
+2. **Regenerate A2A handlers**:
+   ```bash
+   cd a2a-server
+   node generate-a2a-methods.js
+   ```
+3. **Restart A2A server**:
+   ```bash
+   npm restart
+   ```
+
+The new protocol methods will automatically be available as A2A skills without any manual code changes.
 
 ### Adding New Agents
 
@@ -527,8 +685,10 @@ curl http://localhost:8000/health
 curl http://localhost:8001/health
 curl http://localhost:12000/actuator/health
 
-# Test agent cards
+# Test A2A server agent card (shows generated skills)
 curl http://localhost:8000/a2a/agent-card
+
+# Test procurement agent
 curl http://localhost:8001/a2a/agent-card
 
 # Test NPL engine APIs (with authentication)
@@ -556,6 +716,21 @@ curl -X POST http://localhost:12000/npl/rfp_workflow/RfpWorkflow/ \
     "description": "Software Development Services"
   }'
 
+# Test A2A server with generated NPL methods
+curl -X POST http://localhost:8000/a2a/request \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer test-token" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "test-1",
+    "method": "create_rfp",
+    "params": {
+      "agent_id": "procurement_user",
+      "title": "Software Development",
+      "amount": 50000
+    }
+  }'
+
 # Test procurement agent
 curl -X POST http://localhost:8001/a2a/request \
   -H "Content-Type: application/json" \
@@ -572,6 +747,20 @@ curl -X POST http://localhost:8001/a2a/request \
   }'
 ```
 
+### Code Generation Testing
+
+```bash
+# Test code generation
+cd a2a-server
+node generate-a2a-methods.js
+
+# Verify generated files
+ls -la src/method-handlers.js src/method-mappings.js src/agent-skills.js
+
+# Test generated skills endpoint
+curl http://localhost:8000/a2a/agent-card | jq '.skills'
+```
+
 ### Automated Testing
 
 ```bash
@@ -580,18 +769,31 @@ node test_procurement_agent.js
 
 # Test A2A server
 node test_a2a_client.js
+
+# Test agent connection
+node test_agent_connection.js
+
+# Test finance agent
+node test_finance_agent.js
+
+# Test RFP integration
+node test_rfp_integration.js
 ```
 
 ## Architecture Benefits
 
-1. **Protocol Compliance**: Uses official A2A TypeScript types for full protocol compliance
-2. **Type Safety**: TypeScript provides compile-time type checking and better developer experience
-3. **Scalability**: Node.js/Express provides excellent performance for API endpoints
-4. **Integration**: Seamless integration between A2A protocol and NPL policy engine
-5. **Security**: Keycloak provides enterprise-grade authentication and authorization
-6. **Auditability**: Complete audit trail of all agent interactions and policy decisions
-7. **Agentic Behavior**: Structured, rule-based agents with predictable behavior
-8. **Full API Access**: All NPL engine APIs accessible with proper configuration and authentication
+1. **Zero Manual Integration**: Automated code generation eliminates manual NPL integration work
+2. **Protocol Compliance**: Uses official A2A TypeScript types for full protocol compliance
+3. **Type Safety**: Complete TypeScript type safety across the entire stack
+4. **NPL-First Architecture**: All business logic and policy enforcement happens in NPL
+5. **Dynamic Updates**: New NPL protocols automatically generate new A2A methods
+6. **Multi-IdP Ready**: Supports agents from different organizations with different IdPs
+7. **Scalability**: Node.js/Express provides excellent performance for API endpoints
+8. **Security**: Keycloak provides enterprise-grade authentication and authorization
+9. **Auditability**: Complete audit trail of all agent interactions and policy decisions
+10. **Agentic Behavior**: Structured, rule-based agents with predictable behavior
+11. **Full API Access**: All NPL engine APIs accessible with proper configuration and authentication
+12. **Maintainable**: Clear separation between generated and custom code
 
 ## 🚀 **Next Steps**
 
@@ -688,3 +890,5 @@ node test_rfp_integration.js
 - If the protocol is not found, verify that the protocol was deployed and the correct ID is used.
 
 ---
+
+// ... existing code ...
