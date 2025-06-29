@@ -9,6 +9,14 @@ const AGENT_SKILLS = [
     "protocol": "RfpWorkflow",
     "methods": [
       {
+        "name": "listmyprotocols",
+        "description": "List all protocol instances where the authenticated party is involved in rfp_workflow.RfpWorkflow"
+      },
+      {
+        "name": "getmyprotocolcontent",
+        "description": "Get full content of a specific protocol instance for rfp_workflow.RfpWorkflow"
+      },
+      {
         "name": "getrfpdetails",
         "description": "getRfpDetails operation for rfp_workflow.RfpWorkflow"
       },

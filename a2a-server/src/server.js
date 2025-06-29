@@ -18,6 +18,9 @@ const { RfpWorkflow_getBudgetApproval } = require('./method-handlers');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configuration
+const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://npl-engine:12000';
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -57,6 +60,112 @@ function validateToken(token) {
 }
 
 /**
+ * Handle listMyProtocols discovery method
+ */
+async function handleListMyProtocols(params, token, res) {
+    try {
+        const { package, protocol } = params;
+        
+        if (!package || !protocol) {
+            return res.status(400).json({
+                error: 'Missing required parameters: package, protocol'
+            });
+        }
+
+        // Query NPL engine with agent's token
+        const nplResponse = await fetch(
+            `${NPL_ENGINE_URL}/npl/${package}/${protocol}/`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (!nplResponse.ok) {
+            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
+        }
+
+        const nplData = await nplResponse.json();
+        
+        // NPL engine returns { items: [...], page: 1 }
+        // Extract the items array for the response
+        const protocols = nplData.items || [];
+        
+        res.json({
+            success: true,
+            result: {
+                protocols: protocols,
+                count: protocols.length,
+                package: package,
+                protocol: protocol
+            },
+            method: `${package}.${protocol}.listMyProtocols`,
+            handler: 'npl-engine',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('listMyProtocols error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+}
+
+/**
+ * Handle getMyProtocolContent discovery method
+ */
+async function handleGetMyProtocolContent(params, token, res) {
+    try {
+        const { protocolId, package, protocol } = params;
+        
+        if (!protocolId || !package || !protocol) {
+            return res.status(400).json({
+                error: 'Missing required parameters: protocolId, package, protocol'
+            });
+        }
+
+        // Query NPL engine with agent's token
+        const nplResponse = await fetch(
+            `${NPL_ENGINE_URL}/npl/${package}/${protocol}/${protocolId}/`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (!nplResponse.ok) {
+            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
+        }
+
+        const protocolContent = await nplResponse.json();
+
+        res.json({
+            success: true,
+            result: {
+                protocolId: protocolId,
+                content: protocolContent
+            },
+            method: `${package}.${protocol}.getMyProtocolContent`,
+            handler: 'npl-engine',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('getMyProtocolContent error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+}
+
+/**
  * A2A method execution endpoint (NPL Integration)
  */
 app.post('/a2a/method', async (req, res) => {
@@ -69,8 +178,22 @@ app.post('/a2a/method', async (req, res) => {
             });
         }
 
-        // Validate token
+        // Validate token at A2A level
         const claims = validateToken(token);
+
+        // Debug logging
+        console.log(`Received method: "${method}" (lowercase: "${method.toLowerCase()}")`);
+
+        // Handle discovery methods
+        if (method.toLowerCase() === 'listmyprotocols') {
+            console.log('Handling listMyProtocols discovery method');
+            return await handleListMyProtocols(params, token, res);
+        }
+        
+        if (method.toLowerCase() === 'getmyprotocolcontent') {
+            console.log('Handling getMyProtocolContent discovery method');
+            return await handleGetMyProtocolContent(params, token, res);
+        }
 
         // Handle with NPL engine
         console.log(`Routing to NPL engine: ${package}.${protocol}.${method}`);

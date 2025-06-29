@@ -1,0 +1,30 @@
+# Development override for docker-compose.yml
+# This file enables live code reloading for development
+
+version: '3.8'
+
+services:
+  a2a-server:
+    # Override the build with volume mounts for development
+    volumes:
+      # Mount source code for live reloading
+      - ./a2a-server/src:/app/src:ro
+      - ./a2a-server/package.json:/app/package.json:ro
+      - ./a2a-server/package-lock.json:/app/package-lock.json:ro
+    # Use nodemon for development (if available)
+    command: >
+      sh -c "
+        if command -v nodemon >/dev/null 2>&1; then
+          echo 'Using nodemon for development...'
+          nodemon src/server.js
+        else
+          echo 'Using node for development...'
+          node src/server.js
+        fi
+      "
+    # Enable file watching
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    # Restart policy for development
+    restart: unless-stopped 

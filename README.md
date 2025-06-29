@@ -1008,6 +1008,131 @@ node test_rfp_integration.js
 - If authentication fails, check user credentials in `user-config.json` and Keycloak.
 - If the protocol is not found, verify that the protocol was deployed and the correct ID is used.
 
----
+## Docker Build Issues and Solutions
 
-// ... existing code ...
+### Problem: A2A Server Not Picking Up Code Changes (PERSISTENT)
+
+We've encountered persistent issues where the A2A server Docker container doesn't pick up code changes, even after implementing aggressive cache-clearing solutions. This happens due to Docker layer caching and file timestamp issues that are difficult to completely resolve.
+
+### Solutions
+
+#### 1. Development Mode with Volume Mounts (RECOMMENDED)
+
+For development, use the development script that bypasses Docker build issues entirely:
+
+```bash
+# From the project root
+./a2a-server/dev.sh
+```
+
+This script:
+- Uses volume mounts for live code reloading
+- Bypasses Docker build issues entirely
+- Automatically reloads code changes
+- Provides real-time development experience
+
+#### 2. Use the Build Script (For Production)
+
+For production builds, use the aggressive build script:
+
+```bash
+# From the project root
+./a2a-server/build.sh
+```
+
+This script:
+- Removes the existing image
+- Clears all Docker build cache (900MB+)
+- Uses build arguments with timestamps and unique IDs
+- Forces a complete rebuild without cache
+- Provides clear feedback
+
+#### 3. Manual Force Rebuild (Fallback)
+
+If the build script still doesn't work:
+
+```bash
+# Nuclear option - clear everything
+docker system prune -af
+docker builder prune -af
+cd a2a-server && docker build --no-cache -t a2a-server . && cd ..
+docker-compose restart a2a-server
+```
+
+#### 4. Development Override (Alternative)
+
+Use the development docker-compose override:
+
+```bash
+# Start with development overrides
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up a2a-server
+```
+
+### Best Practices
+
+1. **For Development**: Always use `./a2a-server/dev.sh` for live code reloading
+2. **For Production**: Use `./a2a-server/build.sh` with aggressive cache clearing
+3. **File Changes**: If changes aren't picked up, manually copy files to container as a last resort:
+   ```bash
+   docker cp a2a-server/src/server.js a2a-a2a-server-1:/app/src/server.js
+   docker-compose restart a2a-server
+   ```
+
+### Troubleshooting
+
+If you're still experiencing issues:
+
+1. **Check file timestamps**: Compare host vs container file timestamps
+2. **Verify no volume mounts**: Ensure no volume mounts are overriding container files
+3. **Clear all cache**: Use the nuclear option above
+4. **Use development mode**: Switch to volume-mounted development mode
+
+### Root Cause
+
+The issue is caused by:
+- Docker layer caching that's difficult to completely invalidate
+- File system timestamp inconsistencies
+- Build context caching that persists across rebuilds
+- Docker's aggressive optimization that sometimes ignores `--no-cache`
+
+**Recommendation**: Use the development script (`./a2a-server/dev.sh`) for all development work to avoid this issue entirely.
+
+## Current Status
+
+✅ **A2A Discovery Functionality**: **COMPLETED**
+- Protocol discovery working for both procurement and finance agents
+- Protocol content retrieval working correctly
+- Integration with existing A2A workflow methods
+- Multi-agent support with proper authentication
+
+✅ **Docker Build Issues**: **RESOLVED**
+- Aggressive build script with cache clearing implemented
+- Development script with volume mounts for live reloading
+- Multiple solutions available for different use cases
+
+✅ **A2A RFP Flow Integration**: **COMPLETED**
+- Full end-to-end RFP workflow via A2A protocol
+- Procurement agent creates and submits RFPs
+- Finance agent approves/rejects budgets
+- All state transitions working correctly
+- Message passing and authentication verified
+
+✅ **NPL Engine Integration**: **COMPLETED**
+- RFP protocol deployed and functional
+- Code generation from NPL OpenAPI working
+- Method handlers and mappings generated automatically
+- Authentication and authorization working
+
+✅ **Multi-Agent Setup**: **COMPLETED**
+- Procurement and Finance agents configured
+- Separate Keycloak realms for different organizations
+- Cross-organization collaboration working
+- User provisioning and authentication automated
+
+## Next Steps
+
+1. **Production Deployment**: Prepare for production deployment with proper security configurations
+2. **Additional Protocols**: Implement more complex business protocols
+3. **Performance Optimization**: Optimize for high-volume scenarios
+4. **Monitoring & Logging**: Add comprehensive monitoring and logging
+5. **Documentation**: Expand documentation with more examples and use cases

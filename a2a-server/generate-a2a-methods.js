@@ -143,6 +143,26 @@ function generateMethodMapping(protocols) {
     
     for (const [packageName, packageProtocols] of Object.entries(protocols)) {
         for (const [protocolName, methods] of Object.entries(packageProtocols)) {
+            // Add discovery methods for each protocol
+            mappings.push({
+                package: packageName,
+                protocol: protocolName,
+                method: 'listmyprotocols',
+                operationId: `${packageName}_${protocolName}_listMyProtocols`,
+                path: `/npl/${packageName}/${protocolName}/`,
+                summary: `List all protocol instances for ${packageName}.${protocolName}`
+            });
+            
+            mappings.push({
+                package: packageName,
+                protocol: protocolName,
+                method: 'getmyprotocolcontent',
+                operationId: `${packageName}_${protocolName}_getMyProtocolContent`,
+                path: `/npl/${packageName}/${protocolName}/{id}/`,
+                summary: `Get protocol content for ${packageName}.${protocolName}`
+            });
+            
+            // Add regular protocol methods
             for (const [methodName, endpoint] of Object.entries(methods)) {
                 const operationId = endpoint.operationId || `${methodName.toLowerCase()}_${packageName}_${protocolName}`;
                 mappings.push({
@@ -185,13 +205,27 @@ function generateAgentSkills(protocols) {
     
     for (const [packageName, packageProtocols] of Object.entries(protocols)) {
         for (const [protocolName, methods] of Object.entries(packageProtocols)) {
-            const protocolSkills = {
-                package: packageName,
-                protocol: protocolName,
-                methods: Object.keys(methods).map(methodName => ({
+            const protocolMethods = [
+                // Add discovery methods first
+                {
+                    name: 'listmyprotocols',
+                    description: `List all protocol instances where the authenticated party is involved in ${packageName}.${protocolName}`
+                },
+                {
+                    name: 'getmyprotocolcontent',
+                    description: `Get full content of a specific protocol instance for ${packageName}.${protocolName}`
+                },
+                // Add regular protocol methods
+                ...Object.keys(methods).map(methodName => ({
                     name: methodName.toLowerCase(),
                     description: methods[methodName].summary || `${methodName} operation for ${packageName}.${protocolName}`
                 }))
+            ];
+            
+            const protocolSkills = {
+                package: packageName,
+                protocol: protocolName,
+                methods: protocolMethods
             };
             skills.push(protocolSkills);
         }
@@ -228,9 +262,15 @@ module.exports = { AGENT_SKILLS, getProtocolSkills, getAllProtocols };
 function generateA2AServer(protocols) {
     const methodHandlers = [];
     const methodNames = [];
+    const discoveryMethodNames = [];
     
     for (const [packageName, packageProtocols] of Object.entries(protocols)) {
         for (const [protocolName, methods] of Object.entries(packageProtocols)) {
+            // Add discovery method names
+            discoveryMethodNames.push(`${packageName}_${protocolName}_listMyProtocols`);
+            discoveryMethodNames.push(`${packageName}_${protocolName}_getMyProtocolContent`);
+            
+            // Add regular protocol methods
             for (const [methodName, endpoint] of Object.entries(methods)) {
                 const operationId = endpoint.operationId || `${methodName.toLowerCase()}_${packageName}_${protocolName}`;
                 methodHandlers.push(generateMethodHandler(`${packageName}_${protocolName}`, endpoint, methodName));
@@ -256,6 +296,9 @@ function generateA2AServer(protocols) {
         '',
         'const app = express();',
         'const PORT = process.env.PORT || 3000;',
+        '',
+        '// Configuration',
+        "const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://npl-engine:12000';",
         '',
         '// Middleware',
         'app.use(cors());',
@@ -296,6 +339,108 @@ function generateA2AServer(protocols) {
         '}',
         '',
         '/**',
+        ' * Handle listMyProtocols discovery method',
+        ' */',
+        'async function handleListMyProtocols(params, token, res) {',
+        '    try {',
+        '        const { package, protocol } = params;',
+        '        ',
+        '        if (!package || !protocol) {',
+        '            return res.status(400).json({',
+        "                error: 'Missing required parameters: package, protocol'",
+        '            });',
+        '        }',
+        '',
+        '        // Query NPL engine with agent\'s token',
+        '        const nplResponse = await fetch(',
+        '            `${NPL_ENGINE_URL}/npl/${package}/${protocol}/`,',
+        '            {',
+        '                headers: {',
+        '                    \'Authorization\': `Bearer ${token}`,',
+        '                    \'Accept\': \'application/json\'',
+        '                }',
+        '            }',
+        '        );',
+        '',
+        '        if (!nplResponse.ok) {',
+        '            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);',
+        '        }',
+        '',
+        '        const protocols = await nplResponse.json();',
+        '',
+        '        res.json({',
+        '            success: true,',
+        '            result: {',
+        '                protocols: protocols,',
+        '                count: protocols.length,',
+        '                package: package,',
+        '                protocol: protocol',
+        '            },',
+        '            method: `${package}.${protocol}.listMyProtocols`,',
+        '            handler: \'npl-engine\',',
+        '            timestamp: new Date().toISOString()',
+        '        });',
+        '',
+        '    } catch (error) {',
+        "        console.error('listMyProtocols error:', error);",
+        '        res.status(500).json({',
+        '            error: error.message,',
+        '            timestamp: new Date().toISOString()',
+        '        });',
+        '    }',
+        '}',
+        '',
+        '/**',
+        ' * Handle getMyProtocolContent discovery method',
+        ' */',
+        'async function handleGetMyProtocolContent(params, token, res) {',
+        '    try {',
+        '        const { protocolId, package, protocol } = params;',
+        '        ',
+        '        if (!protocolId || !package || !protocol) {',
+        '            return res.status(400).json({',
+        "                error: 'Missing required parameters: protocolId, package, protocol'",
+        '            });',
+        '        }',
+        '',
+        '        // Query NPL engine with agent\'s token',
+        '        const nplResponse = await fetch(',
+        '            `${NPL_ENGINE_URL}/npl/${package}/${protocol}/${protocolId}/`,',
+        '            {',
+        '                headers: {',
+        '                    \'Authorization\': `Bearer ${token}`,',
+        '                    \'Accept\': \'application/json\'',
+        '                }',
+        '            }',
+        '        );',
+        '',
+        '        if (!nplResponse.ok) {',
+        '            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);',
+        '        }',
+        '',
+        '        const protocolContent = await nplResponse.json();',
+        '',
+        '        res.json({',
+        '            success: true,',
+        '            result: {',
+        '                protocolId: protocolId,',
+        '                content: protocolContent',
+        '            },',
+        '            method: `${package}.${protocol}.getMyProtocolContent`,',
+        '            handler: \'npl-engine\',',
+        '            timestamp: new Date().toISOString()',
+        '        });',
+        '',
+        '    } catch (error) {',
+        "        console.error('getMyProtocolContent error:', error);",
+        '        res.status(500).json({',
+        '            error: error.message,',
+        '            timestamp: new Date().toISOString()',
+        '        });',
+        '    }',
+        '}',
+        '',
+        '/**',
         ' * A2A method execution endpoint (NPL Integration)',
         ' */',
         "app.post('/a2a/method', async (req, res) => {",
@@ -308,8 +453,17 @@ function generateA2AServer(protocols) {
         '            });',
         '        }',
         '',
-        '        // Validate token',
+        '        // Validate token at A2A level',
         '        const claims = validateToken(token);',
+        '',
+        '        // Handle discovery methods',
+        '        if (method === \'listMyProtocols\') {',
+        '            return await handleListMyProtocols(params, token, res);',
+        '        }',
+        '        ',
+        '        if (method === \'getMyProtocolContent\') {',
+        '            return await handleGetMyProtocolContent(params, token, res);',
+        '        }',
         '',
         '        // Handle with NPL engine',
         '        console.log(`Routing to NPL engine: ${package}.${protocol}.${method}`);',

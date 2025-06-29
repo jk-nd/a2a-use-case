@@ -7,6 +7,22 @@ const METHOD_MAPPINGS = [
   {
     "package": "rfp_workflow",
     "protocol": "RfpWorkflow",
+    "method": "listmyprotocols",
+    "operationId": "rfp_workflow_RfpWorkflow_listMyProtocols",
+    "path": "/npl/rfp_workflow/RfpWorkflow/",
+    "summary": "List all protocol instances for rfp_workflow.RfpWorkflow"
+  },
+  {
+    "package": "rfp_workflow",
+    "protocol": "RfpWorkflow",
+    "method": "getmyprotocolcontent",
+    "operationId": "rfp_workflow_RfpWorkflow_getMyProtocolContent",
+    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/",
+    "summary": "Get protocol content for rfp_workflow.RfpWorkflow"
+  },
+  {
+    "package": "rfp_workflow",
+    "protocol": "RfpWorkflow",
     "method": "getrfpdetails",
     "operationId": "RfpWorkflow_getRfpDetails",
     "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getRfpDetails",

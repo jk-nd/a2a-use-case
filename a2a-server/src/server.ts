@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
@@ -49,7 +49,7 @@ app.use(cors());
 app.use(express.json());
 
 // Logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
@@ -73,6 +73,7 @@ function validateToken(token: string) {
         // In production, you would validate against each IdP's public keys
         const trustedIssuers = [
             'http://localhost:11000/realms/noumena', // Main Keycloak
+            'http://keycloak:11000/realms/noumena', // Main Keycloak (Docker service)
             'http://localhost:8081/realms/procurement', // Procurement Keycloak
             'http://localhost:8082/realms/finance' // Finance Keycloak
         ];
@@ -84,6 +85,108 @@ function validateToken(token: string) {
         return decoded;
     } catch (error: any) {
         throw new Error(`Token validation failed: ${error.message}`);
+    }
+}
+
+/**
+ * Handle listMyProtocols discovery method
+ */
+async function handleListMyProtocols(params: any, token: string, res: Response) {
+    try {
+        const { package: pkg, protocol } = params;
+        
+        if (!pkg || !protocol) {
+            return res.status(400).json({
+                error: 'Missing required parameters: package, protocol'
+            });
+        }
+
+        // Query NPL engine with agent's token
+        const nplResponse = await fetch(
+            `${NPL_ENGINE_URL}/npl/${pkg}/${protocol}/`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (!nplResponse.ok) {
+            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
+        }
+
+        const protocols = await nplResponse.json() as any[];
+
+        res.json({
+            success: true,
+            result: {
+                protocols: protocols,
+                count: protocols.length,
+                package: pkg,
+                protocol: protocol
+            },
+            method: `${pkg}.${protocol}.listMyProtocols`,
+            handler: 'npl-engine',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('listMyProtocols error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+}
+
+/**
+ * Handle getMyProtocolContent discovery method
+ */
+async function handleGetMyProtocolContent(params: any, token: string, res: Response) {
+    try {
+        const { protocolId, package: pkg, protocol } = params;
+        
+        if (!protocolId || !pkg || !protocol) {
+            return res.status(400).json({
+                error: 'Missing required parameters: protocolId, package, protocol'
+            });
+        }
+
+        // Query NPL engine with agent's token
+        const nplResponse = await fetch(
+            `${NPL_ENGINE_URL}/npl/${pkg}/${protocol}/${protocolId}/`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (!nplResponse.ok) {
+            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
+        }
+
+        const protocolContent = await nplResponse.json();
+
+        res.json({
+            success: true,
+            result: {
+                protocolId: protocolId,
+                content: protocolContent
+            },
+            method: `${pkg}.${protocol}.getMyProtocolContent`,
+            handler: 'npl-engine',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('getMyProtocolContent error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
     }
 }
 
@@ -116,7 +219,7 @@ async function executeMethod(methodName: string, params: any) {
 }
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     service: 'A2A Server (NPL Integration)',
@@ -126,7 +229,7 @@ app.get('/health', (req, res) => {
 });
 
 // A2A method execution endpoint (NPL Integration)
-app.post('/a2a/method', async (req, res) => {
+app.post('/a2a/method', async (req: Request, res: Response) => {
     try {
         const { package: pkg, protocol, method, params = {}, token } = req.body;
 
@@ -136,8 +239,19 @@ app.post('/a2a/method', async (req, res) => {
             });
         }
 
-        // Validate token
+        // Validate token at A2A level
         const claims = validateToken(token);
+
+        // Handle discovery methods
+        if (method === 'listMyProtocols') {
+            await handleListMyProtocols(params, token, res);
+            return;
+        }
+        
+        if (method === 'getMyProtocolContent') {
+            await handleGetMyProtocolContent(params, token, res);
+            return;
+        }
 
         // Handle with NPL engine
         console.log(`Routing to NPL engine: ${pkg}.${protocol}.${method}`);
@@ -170,7 +284,7 @@ app.post('/a2a/method', async (req, res) => {
 });
 
 // Get available protocols and methods
-app.get('/a2a/skills', (req, res) => {
+app.get('/a2a/skills', (req: Request, res: Response) => {
     try {
         const nplProtocols = getAllProtocols();
         const nplSkills = nplProtocols.map((protocol: any) => getProtocolSkills(protocol.package, protocol.protocol));
@@ -192,7 +306,7 @@ app.get('/a2a/skills', (req, res) => {
 });
 
 // Legacy A2A Request endpoint (for backward compatibility)
-app.post('/a2a/request', async (req, res) => {
+app.post('/a2a/request', async (req: Request, res: Response) => {
   try {
     const request: JSONRPCRequest = req.body;
     const token = req.headers.authorization?.replace('Bearer ', '') || '';
