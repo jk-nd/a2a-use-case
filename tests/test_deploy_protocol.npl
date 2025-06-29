@@ -1,0 +1,70 @@
+package test_deploy
+
+/**
+ * Simple test protocol for dynamic deployment
+ * @param issuer The party issuing the test
+ * @param recipient The party receiving the test
+ * @param initialValue The initial value of the test
+ */
+@api
+protocol[issuer, recipient] TestProtocol(var initialValue: Number) {
+    require(initialValue > 0, "Initial value must be strictly positive");
+
+    initial state created;
+    state processing;
+    final state completed;
+    final state failed;
+
+    private var currentValue: Number = initialValue;
+    private var processingTime: DateTime = now();
+
+    /**
+     * Function to get the current value
+     * @return The current value
+     */
+    function getCurrentValue() returns Number -> currentValue;
+
+    /**
+     * Function to start processing, invoked by the issuer
+     */
+    @api
+    permission[issuer] startProcessing() | created {
+        processingTime = now();
+        become processing;
+    };
+
+    /**
+     * Function to update the value, invoked by the recipient
+     * @param newValue The new value to set
+     */
+    @api
+    permission[recipient] updateValue(newValue: Number) | processing {
+        require(newValue > 0, "New value must be strictly positive");
+        currentValue = newValue;
+    };
+
+    /**
+     * Function to complete the processing, invoked by the issuer
+     */
+    @api
+    permission[issuer] complete() | processing {
+        become completed;
+    };
+
+    /**
+     * Function to fail the processing, invoked by either party
+     */
+    @api
+    permission[issuer | recipient] fail() | created, processing {
+        become failed;
+    };
+
+    /**
+     * Function to get the processing time, invoked by either party
+     * @return The processing time
+     */
+    @api
+    permission[issuer | recipient] getProcessingTime() returns DateTime | processing, completed {
+        return processingTime;
+    };
+} 

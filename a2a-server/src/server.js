@@ -5,15 +5,11 @@ const { findMethodMapping } = require('./method-mappings');
 const { getProtocolSkills, getAllProtocols } = require('./agent-skills');
 
 // Import generated method handlers
-const { RfpWorkflow_getRfpDetails } = require('./method-handlers');
-const { RfpWorkflow_submitForApproval } = require('./method-handlers');
-const { RfpWorkflow_approveBudget } = require('./method-handlers');
-const { RfpWorkflow_rejectBudget } = require('./method-handlers');
-const { RfpWorkflow_activateRfp } = require('./method-handlers');
-const { RfpWorkflow_cancelRfp } = require('./method-handlers');
-const { RfpWorkflow_cancelRfpByFinance } = require('./method-handlers');
-const { RfpWorkflow_getCurrentBudget } = require('./method-handlers');
-const { RfpWorkflow_getBudgetApproval } = require('./method-handlers');
+const { TestProtocol_startProcessing } = require('./method-handlers');
+const { TestProtocol_updateValue } = require('./method-handlers');
+const { TestProtocol_complete } = require('./method-handlers');
+const { TestProtocol_fail } = require('./method-handlers');
+const { TestProtocol_getProcessingTime } = require('./method-handlers');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -87,12 +83,8 @@ async function handleListMyProtocols(params, token, res) {
             throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
         }
 
-        const nplData = await nplResponse.json();
-        
-        // NPL engine returns { items: [...], page: 1 }
-        // Extract the items array for the response
-        const protocols = nplData.items || [];
-        
+        const protocols = await nplResponse.json();
+
         res.json({
             success: true,
             result: {
@@ -181,17 +173,12 @@ app.post('/a2a/method', async (req, res) => {
         // Validate token at A2A level
         const claims = validateToken(token);
 
-        // Debug logging
-        console.log(`Received method: "${method}" (lowercase: "${method.toLowerCase()}")`);
-
         // Handle discovery methods
-        if (method.toLowerCase() === 'listmyprotocols') {
-            console.log('Handling listMyProtocols discovery method');
+        if (method === 'listMyProtocols') {
             return await handleListMyProtocols(params, token, res);
         }
         
-        if (method.toLowerCase() === 'getmyprotocolcontent') {
-            console.log('Handling getMyProtocolContent discovery method');
+        if (method === 'getMyProtocolContent') {
             return await handleGetMyProtocolContent(params, token, res);
         }
 
@@ -230,24 +217,16 @@ app.post('/a2a/method', async (req, res) => {
  */
 async function executeMethod(methodName, params) {
     switch (methodName) {
-        case 'RfpWorkflow_getRfpDetails':
-            return await RfpWorkflow_getRfpDetails(params);
-        case 'RfpWorkflow_submitForApproval':
-            return await RfpWorkflow_submitForApproval(params);
-        case 'RfpWorkflow_approveBudget':
-            return await RfpWorkflow_approveBudget(params);
-        case 'RfpWorkflow_rejectBudget':
-            return await RfpWorkflow_rejectBudget(params);
-        case 'RfpWorkflow_activateRfp':
-            return await RfpWorkflow_activateRfp(params);
-        case 'RfpWorkflow_cancelRfp':
-            return await RfpWorkflow_cancelRfp(params);
-        case 'RfpWorkflow_cancelRfpByFinance':
-            return await RfpWorkflow_cancelRfpByFinance(params);
-        case 'RfpWorkflow_getCurrentBudget':
-            return await RfpWorkflow_getCurrentBudget(params);
-        case 'RfpWorkflow_getBudgetApproval':
-            return await RfpWorkflow_getBudgetApproval(params);
+        case 'TestProtocol_startProcessing':
+            return await TestProtocol_startProcessing(params);
+        case 'TestProtocol_updateValue':
+            return await TestProtocol_updateValue(params);
+        case 'TestProtocol_complete':
+            return await TestProtocol_complete(params);
+        case 'TestProtocol_fail':
+            return await TestProtocol_fail(params);
+        case 'TestProtocol_getProcessingTime':
+            return await TestProtocol_getProcessingTime(params);
         default:
             throw new Error(`Unknown method: ${methodName}`);
     }

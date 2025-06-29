@@ -5,92 +5,60 @@
  */
 const METHOD_MAPPINGS = [
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
     "method": "listmyprotocols",
-    "operationId": "rfp_workflow_RfpWorkflow_listMyProtocols",
-    "path": "/npl/rfp_workflow/RfpWorkflow/",
-    "summary": "List all protocol instances for rfp_workflow.RfpWorkflow"
+    "operationId": "test_deploy_TestProtocol_listMyProtocols",
+    "path": "/npl/test_deploy/TestProtocol/",
+    "summary": "List all protocol instances for test_deploy.TestProtocol"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
     "method": "getmyprotocolcontent",
-    "operationId": "rfp_workflow_RfpWorkflow_getMyProtocolContent",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/",
-    "summary": "Get protocol content for rfp_workflow.RfpWorkflow"
+    "operationId": "test_deploy_TestProtocol_getMyProtocolContent",
+    "path": "/npl/test_deploy/TestProtocol/{id}/",
+    "summary": "Get protocol content for test_deploy.TestProtocol"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getrfpdetails",
-    "operationId": "RfpWorkflow_getRfpDetails",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getRfpDetails",
-    "summary": "RfpWorkflow_getRfpDetails"
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
+    "method": "startprocessing",
+    "operationId": "TestProtocol_startProcessing",
+    "path": "/npl/test_deploy/TestProtocol/{id}/startProcessing",
+    "summary": "TestProtocol_startProcessing"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "submitforapproval",
-    "operationId": "RfpWorkflow_submitForApproval",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/submitForApproval",
-    "summary": "RfpWorkflow_submitForApproval"
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
+    "method": "updatevalue",
+    "operationId": "TestProtocol_updateValue",
+    "path": "/npl/test_deploy/TestProtocol/{id}/updateValue",
+    "summary": "TestProtocol_updateValue"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "approvebudget",
-    "operationId": "RfpWorkflow_approveBudget",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/approveBudget",
-    "summary": "RfpWorkflow_approveBudget"
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
+    "method": "complete",
+    "operationId": "TestProtocol_complete",
+    "path": "/npl/test_deploy/TestProtocol/{id}/complete",
+    "summary": "TestProtocol_complete"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "rejectbudget",
-    "operationId": "RfpWorkflow_rejectBudget",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/rejectBudget",
-    "summary": "RfpWorkflow_rejectBudget"
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
+    "method": "fail",
+    "operationId": "TestProtocol_fail",
+    "path": "/npl/test_deploy/TestProtocol/{id}/fail",
+    "summary": "TestProtocol_fail"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "activaterfp",
-    "operationId": "RfpWorkflow_activateRfp",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/activateRfp",
-    "summary": "RfpWorkflow_activateRfp"
-  },
-  {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "cancelrfp",
-    "operationId": "RfpWorkflow_cancelRfp",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/cancelRfp",
-    "summary": "RfpWorkflow_cancelRfp"
-  },
-  {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "cancelrfpbyfinance",
-    "operationId": "RfpWorkflow_cancelRfpByFinance",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/cancelRfpByFinance",
-    "summary": "RfpWorkflow_cancelRfpByFinance"
-  },
-  {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getcurrentbudget",
-    "operationId": "RfpWorkflow_getCurrentBudget",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getCurrentBudget",
-    "summary": "RfpWorkflow_getCurrentBudget"
-  },
-  {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getbudgetapproval",
-    "operationId": "RfpWorkflow_getBudgetApproval",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getBudgetApproval",
-    "summary": "RfpWorkflow_getBudgetApproval"
+    "package": "test_deploy",
+    "protocol": "TestProtocol",
+    "method": "getprocessingtime",
+    "operationId": "TestProtocol_getProcessingTime",
+    "path": "/npl/test_deploy/TestProtocol/{id}/getProcessingTime",
+    "summary": "TestProtocol_getProcessingTime"
   }
 ];
 

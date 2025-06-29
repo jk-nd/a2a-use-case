@@ -29,7 +29,7 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // Configuration
-const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://engine:12000';
+const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
 const KEYCLOAK_URL = process.env.KEYCLOAK_URL || 'http://keycloak:11000';
 const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM || 'noumena';
 const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || 'noumena';
@@ -557,28 +557,133 @@ app.get('/a2a/protocols', async (req: Request, res: Response): Promise<void> => 
         // Validate token
         const claims = validateToken(token);
 
-        // Query NPL engine for deployed protocols
-        const nplResponse = await fetch(
-            `${NPL_ENGINE_URL}/management/npl/`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
+        console.log('Discovering deployed packages...');
+        
+        // Use the same approach as generate-a2a-methods.js
+        let packages: string[] = [];
+        
+        try {
+            // First try to get the engine OpenAPI spec
+            const engineResponse = await fetch(
+                `${NPL_ENGINE_URL}/openapi/engine.yml`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json, application/yaml, text/yaml'
+                    }
                 }
-            }
-        );
+            );
 
-        if (!nplResponse.ok) {
-            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
+            if (engineResponse.ok) {
+                const yamlText = await engineResponse.text();
+                
+                // Try to parse as YAML first, then as JSON
+                let engineSpec: any;
+                try {
+                    // Try to parse as YAML
+                    const yaml = require('js-yaml');
+                    engineSpec = yaml.load(yamlText);
+                } catch (yamlError: any) {
+                    try {
+                        // If YAML fails, try JSON
+                        engineSpec = JSON.parse(yamlText);
+                    } catch (jsonError: any) {
+                        throw new Error(`Failed to parse engine specs (YAML: ${yamlError.message}, JSON: ${jsonError.message})`);
+                    }
+                }
+                
+                // Extract package names from the OpenAPI spec paths
+                const discoveredPackages = new Set<string>();
+                
+                for (const [path, methods] of Object.entries(engineSpec.paths || {})) {
+                    // Match patterns like /npl/{package}/-/openapi.json
+                    const nplMatch = path.match(/\/npl\/([^\/]+)\/-\/openapi\.json/);
+                    if (nplMatch) {
+                        discoveredPackages.add(nplMatch[1]);
+                    }
+                }
+                
+                packages = Array.from(discoveredPackages);
+                console.log(`Discovered ${packages.length} packages from engine spec:`, packages);
+            }
+        } catch (error) {
+            console.warn('Failed to discover packages from engine spec:', error);
         }
 
-        const protocols = await nplResponse.json() as any[];
+        // If no packages found, try direct package discovery
+        if (packages.length === 0) {
+            console.log('No packages found in engine spec, trying direct package discovery...');
+            const knownPackages = ['rfp_workflow', 'test_deploy'];
+            
+            for (const pkg of knownPackages) {
+                try {
+                    console.log(`Checking if package ${pkg} is available...`);
+                    const response = await fetch(
+                        `${NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Accept': 'application/json'
+                            }
+                        }
+                    );
+                    
+                    if (response.ok) {
+                        packages.push(pkg);
+                        console.log(`Package ${pkg} is available`);
+                    }
+                } catch (error) {
+                    console.log(`Package ${pkg} is not available:`, error);
+                }
+            }
+        }
+
+        // Get protocol details for each package
+        const protocolDetails = [];
+        for (const pkg of packages) {
+            try {
+                const response = await fetch(
+                    `${NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json'
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const spec = await response.json() as any;
+                    
+                    // Extract protocol names from paths
+                    const protocols = new Set<string>();
+                    for (const [path, methods] of Object.entries(spec.paths || {})) {
+                        // Match patterns like /npl/package/ProtocolName/{id}/method
+                        const protocolMatch = path.match(/\/npl\/[^\/]+\/([^\/]+)\/\{id\}/);
+                        if (protocolMatch) {
+                            protocols.add(protocolMatch[1]);
+                        }
+                    }
+                    
+                    for (const protocol of protocols) {
+                        protocolDetails.push({
+                            package: pkg,
+                            protocol: protocol,
+                            openapiUrl: `${NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn(`Failed to get details for package ${pkg}:`, error);
+            }
+        }
 
         res.json({
             success: true,
             result: {
-                protocols: protocols,
-                count: protocols.length,
+                packages: packages,
+                protocols: protocolDetails,
+                count: protocolDetails.length,
                 a2aOperations: dynamicMethodManager.getAvailableOperations().length
             },
             timestamp: new Date().toISOString()

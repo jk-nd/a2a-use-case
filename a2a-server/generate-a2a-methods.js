@@ -15,9 +15,14 @@ const http = require('http');
  */
 
 // Configuration
-const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://localhost:12000';
+const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
 const NPL_TOKEN = process.env.NPL_TOKEN || '';
 const OUTPUT_DIR = path.join(__dirname, 'src');
+
+// Parse the engine URL to get hostname and port
+const engineUrl = new URL(NPL_ENGINE_URL);
+const ENGINE_HOST = engineUrl.hostname;
+const ENGINE_PORT = engineUrl.port || (engineUrl.protocol === 'https:' ? 443 : 80);
 
 // Ensure output directory exists
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -28,11 +33,142 @@ if (!fs.existsSync(OUTPUT_DIR)) {
  * Fetch OpenAPI specs from NPL engine
  */
 async function fetchOpenAPISpecs() {
+    console.log('Discovering deployed packages...');
+    
+    // First, discover all deployed packages
+    const packages = await discoverPackages();
+    console.log(`Found ${packages.length} deployed packages:`, packages);
+    
+    // Fetch OpenAPI specs for each package
+    const allSpecs = {};
+    
+    for (const pkg of packages) {
+        try {
+            console.log(`Fetching OpenAPI spec for package: ${pkg}`);
+            const spec = await fetchPackageOpenAPI(pkg);
+            allSpecs[pkg] = spec;
+        } catch (error) {
+            console.warn(`Failed to fetch OpenAPI spec for package ${pkg}:`, error.message);
+        }
+    }
+    
+    // Merge all specs into a single OpenAPI document
+    const mergedSpecs = mergeOpenAPISpecs(allSpecs);
+    return mergedSpecs;
+}
+
+/**
+ * Discover all deployed packages in the NPL engine
+ */
+async function discoverPackages() {
+    try {
+        // First try to get the engine OpenAPI spec (YAML format)
+        const engineSpec = await fetchEngineOpenAPI();
+        
+        // Extract package names from the OpenAPI spec
+        const packages = new Set();
+        
+        // Look for NPL application endpoints in the paths
+        for (const [path, methods] of Object.entries(engineSpec.paths || {})) {
+            // Match patterns like /npl/{package}/-/openapi.json
+            const nplMatch = path.match(/\/npl\/([^\/]+)\/-\/openapi\.json/);
+            if (nplMatch) {
+                packages.add(nplMatch[1]);
+            }
+        }
+        
+        const discoveredPackages = Array.from(packages);
+        console.log(`Discovered ${discoveredPackages.length} packages from engine spec:`, discoveredPackages);
+        
+        // If no packages found in engine spec, try direct package discovery
+        if (discoveredPackages.length === 0) {
+            console.log('No packages found in engine spec, trying direct package discovery...');
+            return await discoverPackagesDirect();
+        }
+        
+        return discoveredPackages;
+    } catch (error) {
+        console.warn('Failed to discover packages from engine spec:', error.message);
+        console.log('Trying direct package discovery...');
+        return await discoverPackagesDirect();
+    }
+}
+
+/**
+ * Fetch engine OpenAPI spec (YAML format)
+ */
+async function fetchEngineOpenAPI() {
     return new Promise((resolve, reject) => {
         const options = {
-            hostname: 'localhost',
-            port: 12000,
-            path: '/npl/rfp_workflow/-/openapi.json',
+            hostname: ENGINE_HOST,
+            port: ENGINE_PORT,
+            path: '/openapi/engine.yml',
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${NPL_TOKEN}`,
+                'Accept': 'application/json, application/yaml, text/yaml'
+            }
+        };
+
+        const req = http.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                try {
+                    // Try to parse as JSON first
+                    const specs = JSON.parse(data);
+                    resolve(specs);
+                } catch (jsonError) {
+                    // If JSON fails, try to parse as YAML
+                    try {
+                        const yaml = require('js-yaml');
+                        const specs = yaml.load(data);
+                        resolve(specs);
+                    } catch (yamlError) {
+                        reject(new Error(`Failed to parse engine specs (JSON: ${jsonError.message}, YAML: ${yamlError.message})`));
+                    }
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+/**
+ * Direct package discovery by checking known packages
+ */
+async function discoverPackagesDirect() {
+    const knownPackages = ['rfp_workflow', 'test_deploy'];
+    const availablePackages = [];
+    
+    for (const pkg of knownPackages) {
+        try {
+            console.log(`Checking if package ${pkg} is available...`);
+            const response = await fetchPackageOpenAPI(pkg);
+            if (response && response.paths) {
+                availablePackages.push(pkg);
+                console.log(`Package ${pkg} is available`);
+            }
+        } catch (error) {
+            console.log(`Package ${pkg} is not available:`, error.message);
+        }
+    }
+    
+    console.log(`Direct discovery found ${availablePackages.length} packages:`, availablePackages);
+    return availablePackages;
+}
+
+/**
+ * Fetch OpenAPI spec for a specific package
+ */
+async function fetchPackageOpenAPI(packageName) {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: ENGINE_HOST,
+            port: ENGINE_PORT,
+            path: `/npl/${packageName}/-/openapi.json`,
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${NPL_TOKEN}`,
@@ -45,10 +181,14 @@ async function fetchOpenAPISpecs() {
             res.on('data', (chunk) => data += chunk);
             res.on('end', () => {
                 try {
-                    const specs = JSON.parse(data);
-                    resolve(specs);
+                    if (res.statusCode === 200) {
+                        const specs = JSON.parse(data);
+                        resolve(specs);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+                    }
                 } catch (error) {
-                    reject(new Error(`Failed to parse OpenAPI specs: ${error.message}`));
+                    reject(new Error(`Failed to parse OpenAPI specs for ${packageName}: ${error.message}`));
                 }
             });
         });
@@ -56,6 +196,46 @@ async function fetchOpenAPISpecs() {
         req.on('error', reject);
         req.end();
     });
+}
+
+/**
+ * Merge multiple OpenAPI specs into a single document
+ */
+function mergeOpenAPISpecs(specsByPackage) {
+    const merged = {
+        openapi: '3.0.1',
+        info: {
+            title: 'NPL Engine - All Packages',
+            description: 'Combined OpenAPI spec for all deployed NPL packages',
+            version: '1.0.0'
+        },
+        paths: {},
+        components: {
+            schemas: {},
+            securitySchemes: {}
+        }
+    };
+    
+    // Merge paths from all packages
+    for (const [packageName, spec] of Object.entries(specsByPackage)) {
+        if (spec.paths) {
+            for (const [path, methods] of Object.entries(spec.paths)) {
+                merged.paths[path] = methods;
+            }
+        }
+        
+        // Merge components if they exist
+        if (spec.components) {
+            if (spec.components.schemas) {
+                Object.assign(merged.components.schemas, spec.components.schemas);
+            }
+            if (spec.components.securitySchemes) {
+                Object.assign(merged.components.securitySchemes, spec.components.securitySchemes);
+            }
+        }
+    }
+    
+    return merged;
 }
 
 /**

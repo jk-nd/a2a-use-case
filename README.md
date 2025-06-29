@@ -2,7 +2,7 @@
 
 This project demonstrates the integration of Google's Agent2Agent (A2A) protocol with the NOUMENA Protocol Language (NPL) for policy enforcement in multi-agent workflows.
 
-## 🎯 **Current Status: A2A Integration Complete! ✅**
+## 🎯 **Current Status: A2A Integration Complete with Dynamic Protocol Deployment! ✅**
 
 ✅ **Full A2A workflow implemented and tested**
 - A2A Server (policy hub) working with automated code generation
@@ -14,6 +14,9 @@ This project demonstrates the integration of Google's Agent2Agent (A2A) protocol
 - **All A2A method calls successful**
 - **All state transitions working**
 - **Message passing between agents and A2A server working**
+- **🚀 Dynamic protocol deployment working**
+- **🔄 Real-time method generation and refresh working**
+- **📋 Protocol discovery and listing working**
 
 ## 🧪 **Latest Test Results: A2A RFP Flow Integration**
 
@@ -172,9 +175,10 @@ a2a/
 ├── a2a-server/           # A2A protocol server
 │   ├── src/             # TypeScript source
 │   ├── dist/            # Compiled JavaScript
-│   ├── build-simple.sh  # Production build script
 │   ├── dev.sh           # Live reload development
 │   └── dev-simple.sh    # Simple development mode
+├── build/               # Build scripts
+│   └── build-simple.sh  # Production build script
 ├── tests/               # Test files and utilities
 │   ├── test_*.js        # Individual test files
 │   ├── get-token.js     # Token generation utility
@@ -198,6 +202,10 @@ a2a/
 - **Auditable Operations**: Complete audit trail of agent interactions and policy decisions
 - **Agentic Behavior**: Structured, rule-based agents without LLM dependencies
 - **Full API Access**: All NPL engine APIs (Core, Management, Admin, Streaming) accessible with proper authentication
+- **🚀 Dynamic Protocol Deployment**: Deploy new NPL protocols at runtime via A2A service
+- **🔄 Real-time Method Generation**: Automatically generate A2A methods from new protocols
+- **📋 Protocol Discovery**: Automatically discover and list deployed packages and protocols
+- **⚡ Zero Downtime Updates**: Update protocols and methods without service restart
 
 ## Use Case: Multi-Agent RFP Workflow
 
@@ -489,8 +497,11 @@ curl -H "Authorization: Bearer <token>" http://localhost:12000/api/streams
 
 ### A2A Server (Port 8000) - Policy Hub
 - `GET /health` - Health check
-- `GET /a2a/agent-card` - Agent capabilities and skills
-- `POST /a2a/request` - Handle A2A protocol requests
+- `GET /a2a/skills` - Get available agent skills and protocols
+- `POST /a2a/method` - Execute A2A methods on NPL protocols
+- `GET /a2a/protocols` - List deployed protocols and packages
+- `POST /a2a/deploy` - Deploy new NPL protocols dynamically
+- `POST /a2a/refresh` - Refresh A2A method handlers after deployment
 
 ### Procurement Agent (Port 8001) - RFP Management
 - `GET /health` - Health check
@@ -521,6 +532,148 @@ curl -H "Authorization: Bearer <token>" http://localhost:12000/api/streams
 - Realm: `noumena`
 - Default User: `alice` / `password123`
 - Token Endpoint: `http://localhost:11000/realms/noumena/protocol/openid-connect/token`
+
+## 🚀 **Dynamic Protocol Deployment**
+
+The A2A Server now supports **dynamic protocol deployment**, allowing agents to deploy new NPL workflows at runtime and automatically generate A2A methods for them.
+
+### ✅ **New Features Added**
+
+- **Dynamic Protocol Discovery**: Automatically discovers deployed packages and protocols
+- **Runtime Protocol Deployment**: Deploy new NPL protocols via A2A service
+- **Automatic Method Generation**: New protocols automatically generate A2A methods
+- **Real-time Method Refresh**: Update A2A methods without restarting the service
+
+### **API Endpoints**
+
+#### `GET /a2a/protocols` - List Deployed Protocols
+Lists all deployed packages and protocols in the NPL engine.
+
+**Request:**
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:8000/a2a/protocols
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "packages": ["test_deploy", "rfp_workflow"],
+    "protocols": [
+      {
+        "package": "test_deploy",
+        "protocol": "TestProtocol",
+        "openapiUrl": "http://engine:12000/npl/test_deploy/-/openapi.json"
+      }
+    ],
+    "count": 1,
+    "a2aOperations": 5
+  },
+  "timestamp": "2025-06-29T10:34:13.726Z"
+}
+```
+
+#### `POST /a2a/deploy` - Deploy New Protocol
+Deploys a new NPL protocol to the engine and automatically generates A2A methods.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/a2a/deploy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "package": "my_package",
+    "protocol": "MyProtocol",
+    "nplCode": "package my_package\n\n@api\nprotocol[user] MyProtocol() {\n  // Protocol implementation\n}",
+    "token": "<jwt_token>"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "package": "my_package",
+    "protocol": "MyProtocol",
+    "deployment": { "status": "success" },
+    "a2aMethodsRegenerated": true
+  },
+  "message": "Protocol my_package.MyProtocol deployed and A2A methods updated",
+  "timestamp": "2025-06-29T10:34:13.726Z"
+}
+```
+
+#### `POST /a2a/refresh` - Refresh A2A Methods
+Manually refresh A2A method handlers after protocol deployment.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/a2a/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"token": "<jwt_token>"}'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "a2aMethodsRegenerated": true,
+    "availableOperations": 7
+  },
+  "message": "A2A methods refreshed successfully",
+  "timestamp": "2025-06-29T10:34:13.726Z"
+}
+```
+
+### **Dynamic Method Manager**
+
+The A2A Server includes a **Dynamic Method Manager** that automatically:
+
+1. **Discovers Packages**: Queries the NPL engine OpenAPI spec to find deployed packages
+2. **Loads Method Handlers**: Dynamically loads generated method handlers
+3. **Refreshes on Changes**: Automatically refreshes when new protocols are deployed
+4. **Maintains State**: Keeps track of available operations and mappings
+
+### **Workflow Example**
+
+```bash
+# 1. Deploy a new protocol
+curl -X POST http://localhost:8000/a2a/deploy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "package": "invoice_workflow",
+    "protocol": "InvoiceProcessing",
+    "nplCode": "package invoice_workflow\n\n@api\nprotocol[buyer, seller] InvoiceProcessing(var amount: Number) {\n  // Invoice processing logic\n}",
+    "token": "<jwt_token>"
+  }'
+
+# 2. Verify deployment
+curl -H "Authorization: Bearer <token>" http://localhost:8000/a2a/protocols
+
+# 3. Check available skills
+curl http://localhost:8000/a2a/skills
+
+# 4. Use new methods
+curl -X POST http://localhost:8000/a2a/method \
+  -H "Content-Type: application/json" \
+  -d '{
+    "package": "invoice_workflow",
+    "protocol": "InvoiceProcessing",
+    "method": "createInvoice",
+    "params": {"amount": 1000},
+    "token": "<jwt_token>"
+  }'
+```
+
+### **Benefits**
+
+- **Zero Downtime**: Deploy new protocols without restarting services
+- **Automatic Integration**: New protocols automatically become A2A methods
+- **Real-time Discovery**: Protocol discovery happens in real-time
+- **Type Safety**: Maintains full TypeScript type safety
+- **Multi-IdP Support**: Works with existing authentication infrastructure
 
 ## 🧪 **Testing Results**
 
@@ -962,7 +1115,7 @@ For production builds, use the aggressive build script:
 
 ```bash
 # From the project root
-./a2a-server/build.sh
+./build/build-simple.sh
 ```
 
 This script:
@@ -1000,7 +1153,7 @@ cd a2a-server
 ### Best Practices
 
 1. **For Development**: Always use `./a2a-server/dev.sh` for live code reloading
-2. **For Production**: Use `./a2a-server/build.sh` with aggressive cache clearing
+2. **For Production**: Use `./build/build-simple.sh` with aggressive cache clearing
 3. **File Changes**: If changes aren't picked up, manually copy files to container as a last resort:
    ```bash
    docker cp a2a-server/src/server.js a2a-a2a-server-1:/app/src/server.js
@@ -1082,8 +1235,7 @@ If you're experiencing issues where old code doesn't get replaced:
 
 1. **Use Simple Production Build (Recommended):**
    ```bash
-   cd a2a-server
-   ./build-simple.sh
+   ./build/build-simple.sh
    ```
 
 2. **Use Simple Development Mode:**
@@ -1106,8 +1258,7 @@ If you're experiencing issues where old code doesn't get replaced:
    docker system prune -f
    
    # Rebuild
-   cd a2a-server
-   ./build-simple.sh
+   ./build/build-simple.sh
    ```
 
 #### Problem: TypeScript Compilation Issues
@@ -1172,17 +1323,16 @@ docker exec a2a-a2a-server-1 cat /app/build-info.txt
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Cannot POST /a2a/deploy` | Endpoint not deployed | Use `./build-simple.sh` or `./dev-simple.sh` |
+| `Cannot POST /a2a/deploy` | Endpoint not deployed | Use `./build/build-simple.sh` or `./dev-simple.sh` |
 | `dist/server.js not found` | TypeScript compilation failed | Run `npm run build` in a2a-server directory |
 | `Permission denied` | File permission issues | Fix permissions or use simple dev mode |
-| `Old code still running` | Docker cache issues | Use `./build-simple.sh` with cache clearing |
+| `Old code still running` | Docker cache issues | Use `./build/build-simple.sh` with cache clearing |
 
 ### Building the A2A Server
 
 #### Option 1: Simple Production Build (Recommended)
 ```bash
-cd a2a-server
-./build-simple.sh
+./build/build-simple.sh
 ```
 
 #### Option 2: Simple Development Mode (Recommended for Development)
