@@ -19,22 +19,11 @@ import {
   InternalError
 } from './types';
 
-// Import generated method handlers and mappings
-const { findMethodMapping } = require('./method-mappings');
-const { getProtocolSkills, getAllProtocols } = require('./agent-skills');
+// Import dynamic method manager
+import { dynamicMethodManager } from './dynamic-method-manager';
 
-// Import generated method handlers
-const { 
-  RfpWorkflow_getRfpDetails,
-  RfpWorkflow_submitForApproval,
-  RfpWorkflow_approveBudget,
-  RfpWorkflow_rejectBudget,
-  RfpWorkflow_activateRfp,
-  RfpWorkflow_cancelRfp,
-  RfpWorkflow_cancelRfpByFinance,
-  RfpWorkflow_getCurrentBudget,
-  RfpWorkflow_getBudgetApproval
-} = require('./method-handlers');
+// Import generated agent skills (for /a2a/skills endpoint)
+const { getProtocolSkills, getAllProtocols } = require('./agent-skills');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -198,31 +187,10 @@ async function handleGetMyProtocolContent(params: any, token: string, res: Respo
 }
 
 /**
- * Execute NPL method by name
+ * Execute NPL method by name using dynamic loading
  */
 async function executeMethod(methodName: string, params: any) {
-    switch (methodName) {
-        case 'RfpWorkflow_getRfpDetails':
-            return await RfpWorkflow_getRfpDetails(params);
-        case 'RfpWorkflow_submitForApproval':
-            return await RfpWorkflow_submitForApproval(params);
-        case 'RfpWorkflow_approveBudget':
-            return await RfpWorkflow_approveBudget(params);
-        case 'RfpWorkflow_rejectBudget':
-            return await RfpWorkflow_rejectBudget(params);
-        case 'RfpWorkflow_activateRfp':
-            return await RfpWorkflow_activateRfp(params);
-        case 'RfpWorkflow_cancelRfp':
-            return await RfpWorkflow_cancelRfp(params);
-        case 'RfpWorkflow_cancelRfpByFinance':
-            return await RfpWorkflow_cancelRfpByFinance(params);
-        case 'RfpWorkflow_getCurrentBudget':
-            return await RfpWorkflow_getCurrentBudget(params);
-        case 'RfpWorkflow_getBudgetApproval':
-            return await RfpWorkflow_getBudgetApproval(params);
-        default:
-            throw new Error(`Unknown method: ${methodName}`);
-    }
+    return await dynamicMethodManager.executeMethod(methodName, params);
 }
 
 // Health check endpoint
@@ -231,6 +199,12 @@ app.get('/health', (req: Request, res: Response) => {
     status: 'healthy',
     service: 'A2A Server (NPL Integration)',
     npl_integration: true,
+    protocol_deployment: true,
+    deployment_endpoints: [
+      'POST /a2a/deploy',
+      'POST /a2a/refresh', 
+      'GET /a2a/protocols'
+    ],
     timestamp: new Date().toISOString()
   });
 });
@@ -261,9 +235,9 @@ app.post('/a2a/method', async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Handle with NPL engine
+        // Handle with NPL engine using dynamic loading
         console.log(`Routing to NPL engine: ${pkg}.${protocol}.${method}`);
-        const mapping = findMethodMapping(pkg, protocol, method);
+        const mapping = dynamicMethodManager.findMethodMapping(pkg, protocol, method);
         if (!mapping) {
             res.status(404).json({
                 error: `Method ${method} not found for ${pkg}.${protocol}`
@@ -333,7 +307,7 @@ app.post('/a2a/request', async (req: Request, res: Response) => {
       const protocol = methodParts[1];
       const method = methodParts[2] || 'default';
       
-      const mapping = findMethodMapping(pkg, protocol, method);
+      const mapping = dynamicMethodManager.findMethodMapping(pkg, protocol, method);
       if (mapping) {
         const result = await executeMethod(mapping.operationId, {
           ...request.params,
@@ -377,10 +351,253 @@ app.post('/a2a/request', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Deploy a new NPL protocol to the engine
+ * This endpoint allows agents to deploy new workflows at runtime
+ */
+app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { package: pkg, protocol, nplCode, token } = req.body;
+
+        if (!pkg || !protocol || !nplCode || !token) {
+            res.status(400).json({
+                error: 'Missing required parameters: package, protocol, nplCode, token'
+            });
+            return;
+        }
+
+        // Validate token
+        const claims = validateToken(token);
+
+        console.log(`Deploying new protocol: ${pkg}.${protocol}`);
+
+        // Create ZIP file with proper folder structure
+        const JSZip = require('jszip');
+        const zip = new JSZip();
+        
+        // Add the NPL file to the correct folder structure
+        // NPL engine expects: src/main/npl-{version}/{package}/{protocol}.npl
+        const nplPath = `src/main/npl-1.0.0/${pkg}/${protocol}.npl`;
+        zip.file(nplPath, nplCode);
+        
+        // Generate ZIP buffer
+        const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+
+        // Deploy to NPL engine via management API
+        const deployResponse = await fetch(
+            `${NPL_ENGINE_URL}/management/npl/${pkg}/${protocol}/`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/zip',
+                    'Accept': 'application/json'
+                },
+                body: zipBuffer
+            }
+        );
+
+        if (!deployResponse.ok) {
+            const errorText = await deployResponse.text();
+            throw new Error(`NPL deployment failed: ${deployResponse.status} ${deployResponse.statusText} - ${errorText}`);
+        }
+
+        const deployResult = await deployResponse.json();
+        console.log(`Protocol ${pkg}.${protocol} deployed successfully`);
+
+        // Regenerate A2A methods for the new protocol
+        console.log('Regenerating A2A methods...');
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+
+        try {
+            // Run the generator script to create new method handlers
+            const { stdout, stderr } = await execAsync('node generate-a2a-methods.js', {
+                cwd: process.cwd(),
+                env: {
+                    ...process.env,
+                    NPL_ENGINE_URL: NPL_ENGINE_URL,
+                    NPL_TOKEN: token
+                }
+            });
+
+            if (stderr) {
+                console.warn('Generator warnings:', stderr);
+            }
+
+            console.log('A2A methods regenerated successfully');
+
+            // Force refresh of dynamic method manager
+            dynamicMethodManager.forceRefresh();
+
+            res.json({
+                success: true,
+                result: {
+                    package: pkg,
+                    protocol: protocol,
+                    deployment: deployResult,
+                    a2aMethodsRegenerated: true
+                },
+                message: `Protocol ${pkg}.${protocol} deployed and A2A methods updated`,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (genError: any) {
+            console.error('Failed to regenerate A2A methods:', genError);
+            
+            // Protocol was deployed but A2A methods couldn't be regenerated
+            res.json({
+                success: true,
+                result: {
+                    package: pkg,
+                    protocol: protocol,
+                    deployment: deployResult,
+                    a2aMethodsRegenerated: false,
+                    warning: 'Protocol deployed but A2A methods could not be regenerated'
+                },
+                message: `Protocol ${pkg}.${protocol} deployed successfully`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+    } catch (error: any) {
+        console.error('Protocol deployment error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * Manual refresh endpoint for A2A method handlers
+ * Useful for admin operations or when deployment doesn't trigger regeneration
+ */
+app.post('/a2a/refresh', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            res.status(400).json({
+                error: 'Missing required parameter: token'
+            });
+            return;
+        }
+
+        // Validate token
+        const claims = validateToken(token);
+
+        console.log('Manual A2A method refresh requested');
+
+        // Regenerate A2A methods
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+
+        try {
+            const { stdout, stderr } = await execAsync('node generate-a2a-methods.js', {
+                cwd: process.cwd(),
+                env: {
+                    ...process.env,
+                    NPL_ENGINE_URL: NPL_ENGINE_URL,
+                    NPL_TOKEN: token
+                }
+            });
+
+            if (stderr) {
+                console.warn('Generator warnings:', stderr);
+            }
+
+            // Force refresh of dynamic method manager
+            dynamicMethodManager.forceRefresh();
+
+            res.json({
+                success: true,
+                result: {
+                    a2aMethodsRegenerated: true,
+                    availableOperations: dynamicMethodManager.getAvailableOperations().length
+                },
+                message: 'A2A methods refreshed successfully',
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (genError: any) {
+            console.error('Failed to refresh A2A methods:', genError);
+            res.status(500).json({
+                error: `Failed to refresh A2A methods: ${genError.message}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+    } catch (error: any) {
+        console.error('Manual refresh error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * List deployed protocols
+ * Shows all protocols currently deployed in the NPL engine
+ */
+app.get('/a2a/protocols', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '') || '';
+
+        if (!token) {
+            res.status(400).json({
+                error: 'Missing Authorization header with Bearer token'
+            });
+            return;
+        }
+
+        // Validate token
+        const claims = validateToken(token);
+
+        // Query NPL engine for deployed protocols
+        const nplResponse = await fetch(
+            `${NPL_ENGINE_URL}/management/npl/`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            }
+        );
+
+        if (!nplResponse.ok) {
+            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText}`);
+        }
+
+        const protocols = await nplResponse.json() as any[];
+
+        res.json({
+            success: true,
+            result: {
+                protocols: protocols,
+                count: protocols.length,
+                a2aOperations: dynamicMethodManager.getAvailableOperations().length
+            },
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('List protocols error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log("A2A Server (NPL Integration) running on port " + PORT);
   console.log("NPL Integration: Enabled");
+  console.log("Protocol Deployment: Enabled");
   console.log("Available protocols: " + getAllProtocols().map((p: any) => `${p.package}.${p.protocol}`).join(", "));
 });
 

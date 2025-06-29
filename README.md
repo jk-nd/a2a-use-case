@@ -168,16 +168,25 @@ node generate-a2a-methods.js
 ### File Structure
 
 ```
-a2a-server/
-├── src/
-│   ├── server.js              # Main A2A server with generated routing
-│   ├── method-handlers.js     # Generated NPL method handlers
-│   ├── method-mappings.js     # Generated method name mappings
-│   ├── agent-skills.js        # Generated agent capabilities
-│   └── types.ts              # TypeScript type definitions
-├── generate-a2a-methods.js    # Code generation script
-├── package.json              # Dependencies and scripts
-└── README.md                 # A2A server documentation
+a2a/
+├── a2a-server/           # A2A protocol server
+│   ├── src/             # TypeScript source
+│   ├── dist/            # Compiled JavaScript
+│   ├── build-simple.sh  # Production build script
+│   ├── dev.sh           # Live reload development
+│   └── dev-simple.sh    # Simple development mode
+├── tests/               # Test files and utilities
+│   ├── test_*.js        # Individual test files
+│   ├── get-token.js     # Token generation utility
+│   ├── verify-deployment.sh # Deployment verification
+│   ├── run-tests.js     # Main test runner
+│   └── user-config.json # Test configuration
+├── src/main/npl-1.0.0/  # NPL protocol definitions
+├── src/test/npl/        # NPL test files
+├── docker-compose.yml   # Main services
+├── docker-compose.dev.yml # Development overrides
+├── run-tests.sh         # Test runner script
+└── README.md           # Project documentation
 ```
 
 ## Features
@@ -713,109 +722,25 @@ The system includes a pre-configured Keycloak realm with:
 ## Testing
 
 ### Manual Testing
-
 ```bash
-# Test health endpoints
-curl http://localhost:8000/health
-curl http://localhost:8001/health
-curl http://localhost:12000/actuator/health
+# Get JWT token
+cd tests
+node get-token.js
 
-# Test A2A server agent card (shows generated skills)
-curl http://localhost:8000/a2a/agent-card
+# Test RFP workflow
+node test_a2a_rfp_flow.js
 
-# Test procurement agent
-curl http://localhost:8001/a2a/agent-card
+# Test discovery
+node test_a2a_discovery.js
 
-# Test NPL engine APIs (with authentication)
-export TOKEN=$(curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=noumena&username=alice&password=password123" \
-  | jq -r '.access_token')
-
-curl -H "Authorization: Bearer $TOKEN" http://localhost:12000/api/streams
-curl -H "Authorization: Bearer $TOKEN" http://localhost:12400/management/analysis
-
-# Test deployed RFP protocol
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:12000/npl/rfp_workflow/RfpWorkflow/
-
-# Create a new RFP instance
-curl -X POST http://localhost:12000/npl/rfp_workflow/RfpWorkflow/ \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "procurement": "alice@example.com",
-    "finance": "bob@example.com", 
-    "legal": "charlie@example.com",
-    "initialBudget": 50000,
-    "description": "Software Development Services"
-  }'
-
-# Test A2A server with generated NPL methods
-curl -X POST http://localhost:8000/a2a/request \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer test-token" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "test-1",
-    "method": "create_rfp",
-    "params": {
-      "agent_id": "procurement_user",
-      "title": "Software Development",
-      "amount": 50000
-    }
-  }'
-
-# Test procurement agent
-curl -X POST http://localhost:8001/a2a/request \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer test-token" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "test-1",
-    "method": "create_rfp",
-    "params": {
-      "agent_id": "procurement_user",
-      "title": "Software Development",
-      "amount": 50000
-    }
-  }'
-```
-
-### Code Generation Testing
-
-```bash
-# Test code generation
-cd a2a-server
-node generate-a2a-methods.js
-
-# Verify generated files
-ls -la src/method-handlers.js src/method-mappings.js src/agent-skills.js
-
-# Test generated skills endpoint
-curl http://localhost:8000/a2a/agent-card | jq '.skills'
+# Test deployment
+./verify-deployment.sh
 ```
 
 ### Automated Testing
-
 ```bash
-# Test procurement agent workflow
-node test_procurement_agent.js
-
-# Test A2A server
-node test_a2a_client.js
-
-# Test agent connection
-node test_agent_connection.js
-
-# Test finance agent
-node test_finance_agent.js
-
-# Test RFP integration
-node test_rfp_integration.js
-
-# 🆕 Test complete A2A RFP workflow
-node test_a2a_rfp_flow.js
+# Run all tests
+./run-tests.sh
 ```
 
 ## 🆕 **A2A Integration Testing**
@@ -1065,7 +990,11 @@ Use the development docker-compose override:
 
 ```bash
 # Start with development overrides
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up a2a-server
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# In another terminal, start live reload
+cd a2a-server
+./dev.sh
 ```
 
 ### Best Practices
@@ -1136,3 +1065,150 @@ The issue is caused by:
 3. **Performance Optimization**: Optimize for high-volume scenarios
 4. **Monitoring & Logging**: Add comprehensive monitoring and logging
 5. **Documentation**: Expand documentation with more examples and use cases
+
+## Troubleshooting
+
+### Docker Build Issues
+
+If you're experiencing issues where old code doesn't get replaced:
+
+#### Problem: Docker Build Cache Issues
+**Symptoms:**
+- Changes to TypeScript files not reflected in container
+- Old endpoints still present after updates
+- "Cannot POST" errors for new endpoints
+
+**Solutions:**
+
+1. **Use Simple Production Build (Recommended):**
+   ```bash
+   cd a2a-server
+   ./build-simple.sh
+   ```
+
+2. **Use Simple Development Mode:**
+   ```bash
+   cd a2a-server
+   ./dev-simple.sh
+   ```
+
+3. **Manual Cache Clearing:**
+   ```bash
+   # Stop containers
+   docker-compose down
+   
+   # Remove images
+   docker rmi a2a-a2a-server:latest
+   docker rmi a2a-server:latest
+   
+   # Clear all caches
+   docker builder prune -af
+   docker system prune -f
+   
+   # Rebuild
+   cd a2a-server
+   ./build-simple.sh
+   ```
+
+#### Problem: TypeScript Compilation Issues
+**Symptoms:**
+- "dist/server.js not found" errors
+- Deployment endpoints missing from compiled file
+
+**Solutions:**
+
+1. **Check TypeScript compilation:**
+   ```bash
+   cd a2a-server
+   npm run build
+   ls -la dist/
+   ```
+
+2. **Verify deployment endpoints in compiled file:**
+   ```bash
+   grep -n "deploy" dist/server.js
+   ```
+
+3. **Check for TypeScript errors:**
+   ```bash
+   npx tsc --noEmit
+   ```
+
+#### Problem: Permission Issues in Container
+**Symptoms:**
+- "Permission denied" errors during build
+- Container fails to start
+
+**Solutions:**
+
+1. **Use Simple Development Mode:**
+   ```bash
+   cd a2a-server
+   ./dev-simple.sh
+   ```
+
+2. **Fix file permissions:**
+   ```bash
+   sudo chown -R $USER:$USER a2a-server/
+   chmod +x a2a-server/*.sh
+   ```
+
+### Verification Scripts
+
+Use these scripts to verify your deployment:
+
+```bash
+# Verify deployment endpoints
+./verify-deployment.sh
+
+# Check container logs
+docker-compose logs a2a-server
+
+# Check build info
+docker exec a2a-a2a-server-1 cat /app/build-info.txt
+```
+
+### Common Error Messages and Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Cannot POST /a2a/deploy` | Endpoint not deployed | Use `./build-simple.sh` or `./dev-simple.sh` |
+| `dist/server.js not found` | TypeScript compilation failed | Run `npm run build` in a2a-server directory |
+| `Permission denied` | File permission issues | Fix permissions or use simple dev mode |
+| `Old code still running` | Docker cache issues | Use `./build-simple.sh` with cache clearing |
+
+### Building the A2A Server
+
+#### Option 1: Simple Production Build (Recommended)
+```bash
+cd a2a-server
+./build-simple.sh
+```
+
+#### Option 2: Simple Development Mode (Recommended for Development)
+```bash
+cd a2a-server
+./dev-simple.sh
+```
+
+#### Option 3: Live Reload Development Mode
+```bash
+# Use development override
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# In another terminal, start live reload
+cd a2a-server
+./dev.sh
+```
+
+### 3. Run Integration Tests
+```bash
+# Run all tests
+./run-tests.sh
+
+# Or run individual tests
+cd tests
+node test_a2a_rfp_flow.js
+node test_a2a_discovery.js
+./verify-deployment.sh
+```

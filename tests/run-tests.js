@@ -2,13 +2,14 @@
 
 const { execSync } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 
 console.log('🚀 Starting complete A2A workflow testing...\n');
 
 async function runCommand(command, description) {
   console.log(`📋 ${description}...`);
   try {
-    execSync(command, { stdio: 'inherit' });
+    execSync(command, { stdio: 'inherit', cwd: __dirname });
     console.log(`✅ ${description} completed successfully\n`);
     return true;
   } catch (error) {
@@ -20,18 +21,18 @@ async function runCommand(command, description) {
 async function checkDependencies() {
   console.log('🔍 Checking dependencies...');
   
-  // Check if axios is installed
+  // Check if axios is installed (from parent directory)
   try {
     require('axios');
     console.log('✅ axios is installed');
   } catch (error) {
     console.log('📦 Installing axios...');
-    execSync('npm install axios', { stdio: 'inherit' });
+    execSync('npm install axios', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
   }
   
   // Check if configuration exists
-  if (!fs.existsSync('user-config.json')) {
-    console.error('❌ user-config.json not found. Please ensure the configuration file exists.');
+  if (!fs.existsSync(path.join(__dirname, 'user-config.json'))) {
+    console.error('❌ user-config.json not found. Please ensure the configuration file exists in the tests directory.');
     return false;
   }
   
