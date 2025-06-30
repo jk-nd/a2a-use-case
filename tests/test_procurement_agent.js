@@ -29,7 +29,7 @@ async function testProcurementAgent() {
     const createRfpRequest = {
       jsonrpc: '2.0',
       id: 'test-create-1',
-      method: 'create_rfp',
+      method: 'procurement.create_rfp',
       params: {
         agent_id: 'procurement_user',
         title: 'Software Development Services',
@@ -52,7 +52,7 @@ async function testProcurementAgent() {
     const trackRfpRequest = {
       jsonrpc: '2.0',
       id: 'test-track-1',
-      method: 'track_rfp',
+      method: 'procurement.track_rfp',
       params: {
         rfp_id: rfpId
       }
@@ -72,7 +72,7 @@ async function testProcurementAgent() {
     const submitRfpRequest = {
       jsonrpc: '2.0',
       id: 'test-submit-1',
-      method: 'submit_rfp',
+      method: 'procurement.submit_rfp',
       params: {
         agent_id: 'procurement_user',
         rfp_id: rfpId

@@ -6,15 +6,24 @@ import axios from 'axios';
 // Load environment variables
 dotenv.config();
 
-// Import types
+// Import Google A2A types
 import { 
   AgentCard, 
   AgentSkill, 
+  AgentCapabilities,
+  AgentProvider,
+  SecurityScheme,
+  HTTPAuthSecurityScheme,
   JSONRPCRequest, 
   JSONRPCErrorResponse,
   JSONRPCSuccessResponse,
+  InternalError,
+  MethodNotFoundError,
+  InvalidParamsError,
   BudgetApproval,
-  BudgetData
+  BudgetData,
+  ApproveBudgetParams,
+  CheckBudgetParams
 } from './types';
 
 const app = express();
@@ -100,40 +109,97 @@ async function callA2AHub(action: string, agentId: string, context: any, token: 
   }
 }
 
-// Create agent skills
+// Create agent skills with Google A2A structure
 const agentSkills: AgentSkill[] = [
   {
-    id: 'approve_budget',
+    id: 'finance.approve_budget',
     name: 'Approve Budget',
-    description: 'Approve budget for RFP',
-    examples: ['Approve budget for software development RFP'],
-    tags: ['budget', 'approval', 'finance']
+    description: 'Approve budget allocation for Request for Proposal with financial validation',
+    tags: ['finance', 'budget', 'approval', 'rfp'],
+    examples: [
+      'Approve budget for software development RFP',
+      'Approve IT budget allocation of $50,000'
+    ],
+    inputModes: ['application/json'],
+    outputModes: ['application/json']
   },
   {
-    id: 'check_budget_availability',
+    id: 'finance.check_budget_availability',
     name: 'Check Budget Availability',
-    description: 'Check if budget is available for RFP',
-    examples: ['Check IT budget availability for 50000'],
-    tags: ['budget', 'check', 'finance']
+    description: 'Check if sufficient budget is available for a specific amount and budget code',
+    tags: ['finance', 'budget', 'validation', 'availability'],
+    examples: [
+      'Check IT budget availability for $50,000',
+      'Verify budget code IT-2024-001 has sufficient funds'
+    ],
+    inputModes: ['application/json'],
+    outputModes: ['application/json']
   },
   {
-    id: 'get_budget_status',
+    id: 'finance.get_budget_status',
     name: 'Get Budget Status',
-    description: 'Get current budget status and allocations',
-    examples: ['Get IT budget status for 2024'],
-    tags: ['budget', 'status', 'finance']
+    description: 'Get current budget status, allocations, and remaining funds for a budget code',
+    tags: ['finance', 'budget', 'status', 'reporting'],
+    examples: [
+      'Get IT budget status for 2024',
+      'Check remaining budget for IT-2024-001'
+    ],
+    inputModes: ['application/json'],
+    outputModes: ['application/json']
   }
 ];
 
-// Create agent card
+// Create agent capabilities
+const agentCapabilities: AgentCapabilities = {
+  streaming: false,
+  pushNotifications: false,
+  stateTransitionHistory: true,
+  extensions: [
+    {
+      uri: 'https://developers.google.com/identity/protocols/oauth2',
+      description: 'OAuth 2.0 authentication for secure financial operations',
+      required: false
+    }
+  ]
+};
+
+// Create security scheme
+const securityScheme: HTTPAuthSecurityScheme = {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT',
+  description: 'JWT Bearer token authentication for financial operations'
+};
+
+// Create agent provider
+const agentProvider: AgentProvider = {
+  organization: 'A2A Demo Organization',
+  url: 'https://github.com/your-org/a2a-demo'
+};
+
+// Create agent card with full Google A2A structure
 const agentCard: AgentCard = {
   name: 'Finance Agent',
-  description: 'Finance agent for budget approval and financial validation',
-  version: '1.0.0',
+  description: 'Enterprise finance agent for budget approval, financial validation, and budget management with policy enforcement',
   url: `http://localhost:${PORT}/a2a`,
+  preferredTransport: 'JSONRPC',
+  iconUrl: 'https://example.com/finance-agent-icon.png',
+  provider: agentProvider,
+  version: '1.0.0',
+  documentationUrl: 'https://github.com/your-org/a2a-demo/docs/finance-agent',
+  capabilities: agentCapabilities,
+  securitySchemes: {
+    bearerAuth: securityScheme
+  },
+  security: [
+    {
+      bearerAuth: []
+    }
+  ],
+  defaultInputModes: ['application/json'],
+  defaultOutputModes: ['application/json'],
   skills: agentSkills,
-  defaultInputModes: ['json'],
-  defaultOutputModes: ['json']
+  supportsAuthenticatedExtendedCard: true
 };
 
 // Health check endpoint
@@ -167,17 +233,26 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
     let result: any;
     
     switch (request.method) {
-      case 'approve_budget':
+      case 'finance.approve_budget':
         result = await handleApproveBudget(request.params, token);
         break;
-      case 'check_budget_availability':
+      case 'finance.check_budget_availability':
         result = await handleCheckBudgetAvailability(request.params, token);
         break;
-      case 'get_budget_status':
+      case 'finance.get_budget_status':
         result = await handleGetBudgetStatus(request.params, token);
         break;
       default:
-        throw new Error(`Unknown method: ${request.method}`);
+        const methodNotFoundError: MethodNotFoundError = {
+          code: -32601,
+          message: `Method not found: ${request.method}`
+        };
+        const response: JSONRPCErrorResponse = {
+          jsonrpc: '2.0',
+          id: request.id || null,
+          error: methodNotFoundError
+        };
+        return res.json(response);
     }
     
     const response: JSONRPCSuccessResponse = {
@@ -190,16 +265,31 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
   } catch (error: any) {
     console.error('Error handling A2A request:', error);
     
-    const response: JSONRPCErrorResponse = {
-      jsonrpc: '2.0',
-      id: req.body?.id || null,
-      error: {
+    let errorResponse: JSONRPCErrorResponse;
+    
+    if (error.message.includes('Missing required fields')) {
+      const invalidParamsError: InvalidParamsError = {
+        code: -32602,
+        message: error.message
+      };
+      errorResponse = {
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: invalidParamsError
+      };
+    } else {
+      const internalError: InternalError = {
         code: -32603,
         message: `Internal error: ${error.message}`
-      }
-    };
+      };
+      errorResponse = {
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: internalError
+      };
+    }
     
-    res.json(response);
+    res.json(errorResponse);
   }
 });
 
@@ -226,7 +316,7 @@ async function handleApproveBudget(params: any, token: string) {
   }
   
   // Call A2A Hub for policy enforcement
-  const hubResponse = await callA2AHub('approve_budget', agent_id || 'unknown', {
+  const hubResponse = await callA2AHub('finance.approve_budget', agent_id || 'unknown', {
     rfp_id,
     amount,
     budget_code

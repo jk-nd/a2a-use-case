@@ -28,11 +28,12 @@ async function testFinanceAgent() {
     console.log('3. Testing check budget availability...');
     const checkBudgetRequest = {
       jsonrpc: '2.0',
-      id: 'test-budget-1',
-      method: 'check_budget_availability',
+      id: 'test-check-1',
+      method: 'finance.check_budget_availability',
       params: {
         budget_code: 'IT-2024-001',
-        amount: 50000
+        amount: 50000,
+        agent_id: 'finance_user'
       }
     };
 
@@ -47,16 +48,16 @@ async function testFinanceAgent() {
 
     // Test get budget status
     console.log('4. Testing get budget status...');
-    const budgetStatusRequest = {
+    const getBudgetStatusRequest = {
       jsonrpc: '2.0',
       id: 'test-status-1',
-      method: 'get_budget_status',
+      method: 'finance.get_budget_status',
       params: {
         budget_code: 'IT-2024-001'
       }
     };
 
-    const budgetStatusResponse = await axios.post(`${FINANCE_AGENT_URL}/a2a/request`, budgetStatusRequest, {
+    const budgetStatusResponse = await axios.post(`${FINANCE_AGENT_URL}/a2a/request`, getBudgetStatusRequest, {
       headers: {
         'Authorization': 'Bearer test-token',
         'Content-Type': 'application/json'
@@ -70,13 +71,12 @@ async function testFinanceAgent() {
     const approveBudgetRequest = {
       jsonrpc: '2.0',
       id: 'test-approve-1',
-      method: 'approve_budget',
+      method: 'finance.approve_budget',
       params: {
-        agent_id: 'finance_user',
-        rfp_id: 'RFP-TEST-001',
+        rfp_id: 'rfp-123',
         amount: 50000,
         budget_code: 'IT-2024-001',
-        comments: 'Approved for software development'
+        agent_id: 'finance_user'
       }
     };
 

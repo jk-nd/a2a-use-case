@@ -57,6 +57,7 @@ services:
     environment:
       PORT: 8000
       NPL_ENGINE_URL: http://engine:12000
+      NPL_MANAGEMENT_URL: http://engine:12400
       KEYCLOAK_URL: http://keycloak:11000
       KEYCLOAK_REALM: noumena
       KEYCLOAK_CLIENT_ID: noumena

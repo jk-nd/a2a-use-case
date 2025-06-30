@@ -28,7 +28,7 @@ async function testA2AServer() {
     const a2aRequest = {
       jsonrpc: '2.0',
       id: 'test-request-1',
-      method: 'policy_check',
+      method: 'procurement.submit_rfp',
       params: {
         agent_id: 'test-agent',
         action: 'submit_rfp',

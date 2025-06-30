@@ -30,6 +30,7 @@ const PORT = process.env.PORT || 8000;
 
 // Configuration
 const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+const NPL_MANAGEMENT_URL = process.env.NPL_MANAGEMENT_URL || 'http://127.0.0.1:12400';
 const KEYCLOAK_URL = process.env.KEYCLOAK_URL || 'http://keycloak:11000';
 const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM || 'noumena';
 const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || 'noumena';
@@ -383,26 +384,30 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
         // Generate ZIP buffer
         const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
 
-        // Deploy to NPL engine via management API
-        const deployResponse = await fetch(
-            `${NPL_ENGINE_URL}/management/npl/${pkg}/${protocol}/`,
+        // Create FormData for multipart upload
+        const FormData = require('form-data');
+        const axios = require('axios');
+        const form = new FormData();
+        form.append('archive', zipBuffer, {
+            filename: `${pkg}-${protocol}.zip`,
+            contentType: 'application/zip'
+        });
+
+        // Deploy to NPL engine via management API using axios
+        const deployResponse = await axios.post(
+            `${NPL_MANAGEMENT_URL}/management/application`,
+            form,
             {
-                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/zip',
-                    'Accept': 'application/json'
+                    ...form.getHeaders()
                 },
-                body: zipBuffer
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity
             }
         );
 
-        if (!deployResponse.ok) {
-            const errorText = await deployResponse.text();
-            throw new Error(`NPL deployment failed: ${deployResponse.status} ${deployResponse.statusText} - ${errorText}`);
-        }
-
-        const deployResult = await deployResponse.json();
+        const deployResult = deployResponse.data;
         console.log(`Protocol ${pkg}.${protocol} deployed successfully`);
 
         // Regenerate A2A methods for the new protocol

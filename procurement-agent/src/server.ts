@@ -6,14 +6,24 @@ import axios from 'axios';
 // Load environment variables
 dotenv.config();
 
-// Import types
+// Import Google A2A types
 import { 
   AgentCard, 
   AgentSkill, 
+  AgentCapabilities,
+  AgentProvider,
+  SecurityScheme,
+  HTTPAuthSecurityScheme,
   JSONRPCRequest, 
   JSONRPCErrorResponse,
   JSONRPCSuccessResponse,
-  RfpData
+  InternalError,
+  MethodNotFoundError,
+  InvalidParamsError,
+  RfpData,
+  CreateRfpParams,
+  SubmitRfpParams,
+  TrackRfpParams
 } from './types';
 
 const app = express();
@@ -89,40 +99,97 @@ async function callA2AHub(action: string, agentId: string, context: any, token: 
   }
 }
 
-// Create agent skills (minimal)
+// Create agent skills with Google A2A structure
 const agentSkills: AgentSkill[] = [
   {
-    id: 'create_rfp',
+    id: 'procurement.create_rfp',
     name: 'Create RFP',
-    description: 'Create a new Request for Proposal',
-    examples: ['Create RFP for software development'],
-    tags: ['rfp', 'procurement']
+    description: 'Create a new Request for Proposal with title, amount, and optional metadata',
+    tags: ['procurement', 'rfp', 'creation'],
+    examples: [
+      'Create RFP for software development project',
+      'Create RFP for office supplies with budget of $50,000'
+    ],
+    inputModes: ['application/json'],
+    outputModes: ['application/json']
   },
   {
-    id: 'submit_rfp',
+    id: 'procurement.submit_rfp',
     name: 'Submit RFP',
-    description: 'Submit an RFP for approval workflow',
-    examples: ['Submit RFP for finance approval'],
-    tags: ['rfp', 'workflow']
+    description: 'Submit an RFP for approval workflow and policy enforcement',
+    tags: ['procurement', 'rfp', 'workflow', 'approval'],
+    examples: [
+      'Submit RFP for finance approval',
+      'Submit RFP for compliance review'
+    ],
+    inputModes: ['application/json'],
+    outputModes: ['application/json']
   },
   {
-    id: 'track_rfp',
+    id: 'procurement.track_rfp',
     name: 'Track RFP',
-    description: 'Track the status of an RFP',
-    examples: ['Check RFP approval status'],
-    tags: ['rfp', 'status']
+    description: 'Track the status and progress of an RFP through the approval workflow',
+    tags: ['procurement', 'rfp', 'status', 'tracking'],
+    examples: [
+      'Check RFP approval status',
+      'Get RFP workflow progress'
+    ],
+    inputModes: ['application/json'],
+    outputModes: ['application/json']
   }
 ];
 
-// Create agent card
+// Create agent capabilities
+const agentCapabilities: AgentCapabilities = {
+  streaming: false,
+  pushNotifications: false,
+  stateTransitionHistory: true,
+  extensions: [
+    {
+      uri: 'https://developers.google.com/identity/protocols/oauth2',
+      description: 'OAuth 2.0 authentication for secure access',
+      required: false
+    }
+  ]
+};
+
+// Create security scheme
+const securityScheme: HTTPAuthSecurityScheme = {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT',
+  description: 'JWT Bearer token authentication'
+};
+
+// Create agent provider
+const agentProvider: AgentProvider = {
+  organization: 'A2A Demo Organization',
+  url: 'https://github.com/your-org/a2a-demo'
+};
+
+// Create agent card with full Google A2A structure
 const agentCard: AgentCard = {
   name: 'Procurement Agent',
-  description: 'Minimal procurement agent for RFP workflow',
-  version: '1.0.0',
+  description: 'Enterprise procurement agent for Request for Proposal (RFP) workflow management with policy enforcement',
   url: `http://localhost:${PORT}/a2a`,
+  preferredTransport: 'JSONRPC',
+  iconUrl: 'https://example.com/procurement-agent-icon.png',
+  provider: agentProvider,
+  version: '1.0.0',
+  documentationUrl: 'https://github.com/your-org/a2a-demo/docs/procurement-agent',
+  capabilities: agentCapabilities,
+  securitySchemes: {
+    bearerAuth: securityScheme
+  },
+  security: [
+    {
+      bearerAuth: []
+    }
+  ],
+  defaultInputModes: ['application/json'],
+  defaultOutputModes: ['application/json'],
   skills: agentSkills,
-  defaultInputModes: ['json'],
-  defaultOutputModes: ['json']
+  supportsAuthenticatedExtendedCard: true
 };
 
 // Health check endpoint
@@ -155,17 +222,26 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
     let result: any;
     
     switch (request.method) {
-      case 'create_rfp':
+      case 'procurement.create_rfp':
         result = await handleCreateRfp(request.params, token);
         break;
-      case 'submit_rfp':
+      case 'procurement.submit_rfp':
         result = await handleSubmitRfp(request.params, token);
         break;
-      case 'track_rfp':
+      case 'procurement.track_rfp':
         result = await handleTrackRfp(request.params, token);
         break;
       default:
-        throw new Error(`Unknown method: ${request.method}`);
+        const methodNotFoundError: MethodNotFoundError = {
+          code: -32601,
+          message: `Method not found: ${request.method}`
+        };
+        const response: JSONRPCErrorResponse = {
+          jsonrpc: '2.0',
+          id: request.id || null,
+          error: methodNotFoundError
+        };
+        return res.json(response);
     }
     
     const response: JSONRPCSuccessResponse = {
@@ -178,54 +254,82 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
   } catch (error: any) {
     console.error('Error handling A2A request:', error);
     
-    const response: JSONRPCErrorResponse = {
-      jsonrpc: '2.0',
-      id: req.body?.id || null,
-      error: {
+    let errorResponse: JSONRPCErrorResponse;
+    
+    if (error.message.includes('Missing required fields')) {
+      const invalidParamsError: InvalidParamsError = {
+        code: -32602,
+        message: error.message
+      };
+      errorResponse = {
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: invalidParamsError
+      };
+    } else {
+      const internalError: InternalError = {
         code: -32603,
         message: `Internal error: ${error.message}`
-      }
-    };
+      };
+      errorResponse = {
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: internalError
+      };
+    }
     
-    res.json(response);
+    res.json(errorResponse);
   }
 });
 
-// Handle Create RFP (minimal)
+// Handle Create RFP with proper validation
 async function handleCreateRfp(params: any, token: string) {
-  const { title, amount, agent_id } = params;
+  const { title, amount, description, category, due_date, agent_id } = params as CreateRfpParams;
   
-  // Basic validation
-  if (!title || !amount) {
-    throw new Error('Missing required fields: title, amount');
+  // Validate required parameters
+  if (!title || !amount || !agent_id) {
+    throw new Error('Missing required fields: title, amount, agent_id');
   }
   
-  if (amount <= 0) {
-    throw new Error('Amount must be positive');
+  if (typeof amount !== 'number' || amount <= 0) {
+    throw new Error('Amount must be a positive number');
   }
   
-  // Generate simple RFP ID
-  const rfp_id = `RFP-${Date.now()}`;
+  // Call A2A Hub for policy enforcement
+  const policyResult = await callA2AHub('procurement.create_rfp', agent_id, {
+    title,
+    amount,
+    description,
+    category,
+    due_date
+  }, token);
   
-  // Create minimal RFP data
-  const rfpData: RfpData = {
-    rfp_id,
+  if (!policyResult.success) {
+    throw new Error(`Policy enforcement failed: ${policyResult.error}`);
+  }
+  
+  // Create RFP
+  const rfpId = `rfp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const rfp: RfpData = {
+    rfp_id: rfpId,
     title,
     amount,
     status: 'draft',
-    created_by: agent_id || 'unknown',
-    created_at: new Date().toISOString()
+    created_by: agent_id,
+    created_at: new Date().toISOString(),
+    description,
+    category,
+    due_date
   };
   
-  // Store RFP
-  rfpStore.set(rfp_id, rfpData);
-  
-  console.log(`Created RFP: ${rfp_id} by ${agent_id}`);
+  rfpStore.set(rfpId, rfp);
   
   return {
-    rfp_id,
-    status: 'draft',
-    message: 'RFP created successfully'
+    rfp_id: rfpId,
+    status: 'created',
+    message: 'RFP created successfully',
+    timestamp: new Date().toISOString(),
+    rfp: rfp
   };
 }
 

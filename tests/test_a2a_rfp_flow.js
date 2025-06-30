@@ -1,8 +1,9 @@
 const axios = require('axios');
 const fs = require('fs');
+const path = require('path');
 
 // Load configuration
-const config = JSON.parse(fs.readFileSync('user-config.json', 'utf8'));
+const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'user-config.json'), 'utf8'));
 
 // Configuration
 const KEYCLOAK_URL = config.keycloak.url;
@@ -171,7 +172,7 @@ async function testA2ARfpFlow() {
     console.log('📤 Step 2: Procurement Agent submits RFP for approval via A2A...');
     const submitResult = await simulateAgentA2ARequest(
       'Procurement Agent',
-      'submitforapproval',
+      'procurement.submit_rfp',
       { protocolId: protocolId },
       procurementToken
     );
@@ -184,7 +185,7 @@ async function testA2ARfpFlow() {
     console.log('💰 Step 3: Finance Agent approves budget via A2A...');
     const approveResult = await simulateAgentA2ARequest(
       'Finance Agent',
-      'approvebudget',
+      'finance.approve_budget',
       {
         protocolId: protocolId,
         approvedAmount: requestedAmount,
@@ -201,7 +202,7 @@ async function testA2ARfpFlow() {
     console.log('🚦 Step 4: Procurement Agent activates RFP via A2A...');
     const activateResult = await simulateAgentA2ARequest(
       'Procurement Agent',
-      'activaterfp',
+      'procurement.track_rfp',
       { protocolId: protocolId },
       procurementToken
     );
@@ -216,7 +217,7 @@ async function testA2ARfpFlow() {
     // Get RFP details via A2A
     const detailsResult = await simulateAgentA2ARequest(
       'Procurement Agent',
-      'getrfpdetails',
+      'procurement.track_rfp',
       { protocolId: protocolId },
       procurementToken
     );
@@ -224,7 +225,7 @@ async function testA2ARfpFlow() {
     // Get current budget via A2A
     const budgetResult = await simulateAgentA2ARequest(
       'Finance Agent',
-      'getcurrentbudget',
+      'finance.check_budget_availability',
       { protocolId: protocolId },
       financeToken
     );
@@ -232,7 +233,7 @@ async function testA2ARfpFlow() {
     // Get budget approval status via A2A
     const approvalStatusResult = await simulateAgentA2ARequest(
       'Finance Agent',
-      'getbudgetapproval',
+      'finance.get_budget_status',
       { protocolId: protocolId },
       financeToken
     );

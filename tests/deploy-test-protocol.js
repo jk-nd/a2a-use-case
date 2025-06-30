@@ -5,27 +5,31 @@ const path = require('path');
 const axios = require('axios');
 const JSZip = require('jszip');
 const FormData = require('form-data');
+const { execSync } = require('child_process');
 
 const A2A_SERVER_URL = 'http://localhost:8000';
 const NPL_ENGINE_URL = 'http://localhost:12000';
 const NPL_MANAGEMENT_URL = 'http://localhost:12400';
 
-async function getToken() {
+async function getToken(username = 'alice') {
     try {
-        console.log('🔑 Getting access token...');
+        console.log(`🔑 Getting access token for ${username}...`);
         
-        const tokenResponse = await axios.post('http://localhost:11000/realms/noumena/protocol/openid-connect/token', 
-            'grant_type=password&client_id=noumena&username=alice&password=password123',
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            }
-        );
+        // Use the enhanced get-token.js script
+        const token = execSync(`node get-token.js ${username}`, { 
+            cwd: __dirname,
+            encoding: 'utf8' 
+        }).trim();
         
-        const token = tokenResponse.data.access_token;
-        console.log('✅ Token obtained successfully');
-        return token;
+        // The script saves the token to a file, so read it
+        const tokenFile = path.join(__dirname, 'test-token.txt');
+        if (fs.existsSync(tokenFile)) {
+            const tokenFromFile = fs.readFileSync(tokenFile, 'utf8').trim();
+            console.log('✅ Token obtained successfully');
+            return tokenFromFile;
+        } else {
+            throw new Error('Token file not found');
+        }
     } catch (error) {
         console.error('❌ Failed to get token:', error.message);
         throw error;
@@ -172,11 +176,32 @@ async function testNewMethod(token) {
     try {
         console.log('🧪 Testing new method from deployed protocol...');
         
-        // Create a new instance of the deployed protocol
+        // Decode the token to get the username
+        const tokenParts = token.split('.');
+        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+        const username = payload.preferred_username;
+        
+        console.log(`🔍 Using JWT claims for user: ${username}`);
+        
+        // Create a new instance of the deployed protocol with proper JWT claims
         const createResponse = await axios.post(`${NPL_ENGINE_URL}/npl/test_deploy/TestProtocol/`, {
-            issuer: 'alice@example.com',
+            issuer: `${username}@example.com`,
             recipient: 'bob@example.com',
-            initialValue: 100
+            initialValue: 100,
+            "@parties": {
+                issuer: {
+                    entity: {
+                        preferred_username: [username]
+                    },
+                    access: {}
+                },
+                recipient: {
+                    entity: {
+                        preferred_username: ["bob"]
+                    },
+                    access: {}
+                }
+            }
         }, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -209,8 +234,12 @@ async function main() {
     try {
         console.log('🚀 Starting dynamic protocol deployment test...\n');
         
-        // Step 1: Get token
-        const token = await getToken();
+        // Get username from command line args or use default
+        const username = process.argv[2] || 'alice';
+        console.log(`👤 Using username: ${username}\n`);
+        
+        // Step 1: Get token for the specified user
+        const token = await getToken(username);
         
         // Step 2: Get initial agent skills
         console.log('\n📊 Initial agent skills:');
@@ -218,9 +247,17 @@ async function main() {
         console.log('Protocols:', initialSkills.protocols);
         console.log('Skills count:', initialSkills.skills.length);
         
-        // Step 3: Deploy the test protocol directly to NPL engine
+        // Step 3: Try to deploy the test protocol directly to NPL engine
         console.log('\n📦 Deploying test protocol directly to NPL engine...');
-        await deployProtocolDirect(token);
+        try {
+            await deployProtocolDirect(token);
+        } catch (error) {
+            if (error.response?.status === 409) {
+                console.log('ℹ️  Protocol already deployed, continuing with test...');
+            } else {
+                throw error;
+            }
+        }
         
         // Step 4: Refresh methods to pick up new protocol
         console.log('\n🔄 Refreshing methods...');
@@ -246,6 +283,7 @@ async function main() {
         console.log('✅ Methods dynamically updated');
         console.log('✅ New protocol methods available');
         console.log('✅ Protocol instance created and tested');
+        console.log(`✅ Used JWT token for user: ${username}`);
         
     } catch (error) {
         console.error('\n❌ Test failed:', error.message);

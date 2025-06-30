@@ -1,8 +1,9 @@
 const axios = require('axios');
 const fs = require('fs');
+const path = require('path');
 
 // Load configuration
-const config = JSON.parse(fs.readFileSync('user-config.json', 'utf8'));
+const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'user-config.json'), 'utf8'));
 
 // Configuration
 const KEYCLOAK_URL = config.keycloak.url;

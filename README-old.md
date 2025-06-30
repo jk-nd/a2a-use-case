@@ -1,16 +1,16 @@
 # Agent2Agent (A2A) with Dynamic NPL Integration
 
-A multi-agent system that combines Google's Agent2Agent (A2A) protocol with NOUMENA Protocol Language (NPL) for dynamic, policy-driven agent workflows.
+A revolutionary approach to multi-agent systems that combines Google's Agent2Agent (A2A) protocol with NOUMENA Protocol Language (NPL) for **dynamic, policy-driven agent workflows**.
 
 ## 🎯 **The Vision**
 
-A system where business processes are dynamically orchestrated by intelligent agents that can:
+Imagine a world where business processes are not just automated, but **dynamically orchestrated** by intelligent agents that can:
 - **Deploy new workflows on-the-fly** without system restarts
 - **Enforce complex business policies** through formal protocol languages
 - **Collaborate across organizational boundaries** with secure, auditable interactions
 - **Adapt to changing requirements** by updating protocols in real-time
 
-This project demonstrates a **policy-first, agent-driven architecture** where:
+This project demonstrates that vision by creating a **policy-first, agent-driven architecture** where:
 - **NPL protocols** define the business rules and state transitions
 - **A2A agents** execute the workflows with full policy compliance
 - **Dynamic deployment** allows new protocols to be added at runtime
@@ -70,10 +70,10 @@ This project demonstrates a **policy-first, agent-driven architecture** where:
                     └───────────────────────────┘
 ```
 
-## 🚀 **Key Features**
+## 🚀 **Key Innovations**
 
 ### 1. **Dynamic Protocol Deployment**
-Systems typically require code changes and deployments for new workflows. This architecture enables **runtime protocol deployment**:
+Unlike traditional systems that require code changes and deployments, this architecture allows **runtime protocol deployment**:
 
 ```bash
 # Deploy a new workflow without restarting anything
@@ -153,7 +153,7 @@ a2a_server:
     TRUSTED_ISSUERS: "http://keycloak.company-a.com,http://keycloak.company-b.com"
 ```
 
-## 🎯 **Current Status: Core Features Complete ✅**
+## 🎯 **Current Status: Production Ready! ✅**
 
 ✅ **Core Architecture Complete**
 - Dynamic protocol deployment working
@@ -192,7 +192,7 @@ The system has been tested with a complete **Request for Proposal (RFP) workflow
 
 ## 🚀 **Dynamic Protocol Deployment**
 
-The system's core feature is **dynamic protocol deployment**:
+The system's most innovative feature is **dynamic protocol deployment**:
 
 ### **How It Works**
 
@@ -300,79 +300,6 @@ curl -X POST http://localhost:8000/a2a/deploy \
 
 # Verify new methods are available
 curl http://localhost:8000/a2a/skills
-```
-
-### **5. JWT Tokens and Protocol Instantiation**
-
-The NPL engine requires JWT tokens with specific claims to instantiate and invoke protocols. The token must contain claims that identify the user as a party in the protocol.
-
-#### **Getting JWT Tokens**
-
-```bash
-# Use the enhanced token script
-cd tests
-
-# Get token for a specific user
-node get-token.js buyer
-
-# Get token for finance manager
-node get-token.js finance_manager
-
-# Get token for procurement agent
-node get-token.js procurement_agent
-
-# Save token to specific file
-node get-token.js alice my-token.txt
-```
-
-#### **JWT Claims Structure**
-
-The JWT token contains claims that identify the user:
-
-```json
-{
-  "sub": "user-id",
-  "preferred_username": "buyer",
-  "email": "buyer@company.com",
-  "name": "John Buyer",
-  "realm_access": {
-    "roles": ["buyer", "procurement"]
-  }
-}
-```
-
-#### **Protocol Instantiation with JWT Claims**
-
-When instantiating a protocol, you must map JWT claims to protocol parties:
-
-```json
-{
-  "initialData": { ... },
-  "@parties": {
-    "procurementAgent": {
-      "entity": {
-        "preferred_username": ["buyer"]
-      },
-      "access": {}
-    },
-    "financeAgent": {
-      "entity": {
-        "preferred_username": ["finance_manager"]
-      },
-      "access": {}
-    }
-  }
-}
-```
-
-#### **Testing Protocol Instantiation**
-
-```bash
-# Test protocol instantiation with JWT claims
-node test-protocol-instantiation.js
-
-# Test dynamic deployment with specific user
-node deploy-test-protocol.js buyer
 ```
 
 ## 🏗️ **Architecture Deep Dive**
@@ -563,4 +490,6 @@ MIT License - see LICENSE file for details.
 
 ---
 
-This project demonstrates that **policy-driven, dynamic agent workflows** are practical and powerful. The combination of A2A protocols, NPL policy enforcement, and dynamic deployment creates a new paradigm for business process automation. 
+**Ready to build the future of multi-agent systems?** 🚀
+
+This project demonstrates that **policy-driven, dynamic agent workflows** are not just possible, but practical and powerful. The combination of A2A protocols, NPL policy enforcement, and dynamic deployment creates a new paradigm for business process automation.
