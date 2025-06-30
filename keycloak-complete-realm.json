@@ -3,19 +3,136 @@
   "enabled": true,
   "users": [
     {
-      "username": "alice",
+      "username": "buyer",
       "enabled": true,
       "emailVerified": true,
-      "email": "alice@example.com",
-      "firstName": "Alice",
-      "lastName": "User",
+      "email": "buyer@company.com",
+      "firstName": "John",
+      "lastName": "Buyer",
       "credentials": [
         {
           "type": "password",
           "value": "password123",
           "temporary": false
         }
-      ]
+      ],
+      "attributes": {
+        "role": ["buyer"],
+        "organization": ["company-a"],
+        "department": ["procurement"],
+        "permissions": ["create_rfp", "review_proposals", "approve_contracts"]
+      }
+    },
+    {
+      "username": "supplier",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "supplier@vendor.com",
+      "firstName": "Jane",
+      "lastName": "Supplier",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "role": ["supplier"],
+        "organization": ["vendor-b"],
+        "specialization": ["software-development"],
+        "permissions": ["view_rfps", "submit_proposals", "track_deliveries"]
+      }
+    },
+    {
+      "username": "finance_manager",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "finance@company.com",
+      "firstName": "Mike",
+      "lastName": "Finance",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "role": ["finance_manager"],
+        "organization": ["company-a"],
+        "department": ["finance"],
+        "permissions": ["approve_budgets", "process_payments", "financial_reports"]
+      }
+    },
+    {
+      "username": "procurement_agent",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "procurement-agent@company.com",
+      "firstName": "Procurement",
+      "lastName": "Agent",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "agent-password-123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "role": ["agent"],
+        "agent_type": ["procurement"],
+        "organization": ["company-a"],
+        "capabilities": ["rfp_creation", "proposal_evaluation", "contract_management"],
+        "api_endpoint": ["http://localhost:3001/api"],
+        "permissions": ["automated_rfp_creation", "proposal_analysis", "contract_generation"]
+      }
+    },
+    {
+      "username": "finance_agent",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "finance-agent@company.com",
+      "firstName": "Finance",
+      "lastName": "Agent",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "agent-password-123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "role": ["agent"],
+        "agent_type": ["finance"],
+        "organization": ["company-a"],
+        "capabilities": ["budget_approval", "payment_processing", "financial_analysis"],
+        "api_endpoint": ["http://localhost:3002/api"],
+        "permissions": ["automated_budget_approval", "payment_processing", "financial_reporting"]
+      }
+    },
+    {
+      "username": "supplier_agent",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "supplier-agent@vendor.com",
+      "firstName": "Supplier",
+      "lastName": "Agent",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "agent-password-123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "role": ["agent"],
+        "agent_type": ["supplier"],
+        "organization": ["vendor-b"],
+        "capabilities": ["proposal_generation", "delivery_tracking", "invoicing"],
+        "api_endpoint": ["http://localhost:3003/api"],
+        "permissions": ["automated_proposal_generation", "delivery_tracking", "invoice_processing"]
+      }
     }
   ],
   "clients": [

@@ -107,16 +107,8 @@ else
     exit 1
 fi
 
-# Run user provisioning
-echo "👥 Running user provisioning..."
-cd "$TESTS_DIR"
-if [ -f "provision-users.js" ]; then
-    echo "📋 Provisioning users from user-config.json..."
-    node provision-users.js
-    echo "✅ User provisioning completed!"
-else
-    echo "⚠️  provision-users.js not found, skipping user provisioning"
-fi
+# Users are automatically provisioned by Keycloak from keycloak-complete-realm.json
+echo "👥 Users automatically provisioned by Keycloak from keycloak-complete-realm.json"
 
 # Generate test token
 echo "🎫 Generating test token..."

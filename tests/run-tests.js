@@ -48,10 +48,8 @@ async function runTests() {
     process.exit(1);
   }
 
-  // Step 2: Provision users
-  if (!await runCommand('node provision-users.js', 'User provisioning')) {
-    console.log('⚠️  User provisioning failed, but continuing with tests...\n');
-  }
+  // Step 2: Users are automatically provisioned by Keycloak from keycloak-complete-realm.json
+  console.log('👥 Users automatically provisioned by Keycloak from keycloak-complete-realm.json\n');
 
   // Step 3: Test user authentication
   if (!await runCommand('node test-user-provisioning.js', 'User authentication testing')) {
