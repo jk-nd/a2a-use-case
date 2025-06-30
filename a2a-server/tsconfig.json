@@ -12,7 +12,25 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": [
+      "node",
+      "express",
+      "cors",
+      "jsonwebtoken",
+      "body-parser",
+      "yargs",
+      "connect",
+      "http-errors",
+      "istanbul-lib-coverage",
+      "istanbul-lib-report",
+      "istanbul-reports",
+      "ms",
+      "qs",
+      "range-parser",
+      "send",
+      "serve-static"
+    ]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

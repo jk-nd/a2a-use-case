@@ -201,10 +201,12 @@ app.get('/health', (req: Request, res: Response) => {
     service: 'A2A Server (NPL Integration)',
     npl_integration: true,
     protocol_deployment: true,
+    protocol_instantiation: true,
     deployment_endpoints: [
       'POST /a2a/deploy',
       'POST /a2a/refresh', 
-      'GET /a2a/protocols'
+      'GET /a2a/protocols',
+      'POST /a2a/instantiate'
     ],
     timestamp: new Date().toISOString()
   });
@@ -409,6 +411,10 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
 
         const deployResult = deployResponse.data;
         console.log(`Protocol ${pkg}.${protocol} deployed successfully`);
+
+        // After successful deployment, refresh dynamic methods
+        dynamicMethodManager.forceRefresh();
+        console.log('🔄 DynamicMethodManager: Refreshed after protocol deployment');
 
         // Regenerate A2A methods for the new protocol
         console.log('Regenerating A2A methods...');
@@ -703,11 +709,158 @@ app.get('/a2a/protocols', async (req: Request, res: Response): Promise<void> => 
     }
 });
 
+/**
+ * Instantiate a protocol with multi-party consent
+ * All parties provide their JWTs simultaneously for atomic protocol creation
+ */
+app.post('/a2a/instantiate', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { 
+            package: pkg, 
+            protocol, 
+            parties, 
+            initialData, 
+            orchestratorToken 
+        } = req.body;
+
+        if (!pkg || !protocol || !parties || !initialData || !orchestratorToken) {
+            res.status(400).json({
+                error: 'Missing required parameters: package, protocol, parties, initialData, orchestratorToken'
+            });
+            return;
+        }
+
+        console.log(`Instantiating protocol: ${pkg}.${protocol} with ${Object.keys(parties).length} parties`);
+
+        // Validate orchestrator token (the service making the request)
+        const orchestratorClaims = validateToken(orchestratorToken);
+
+        // Validate all party JWTs and extract claims
+        const validatedParties: { [key: string]: any } = {};
+        const partyEntities: { [key: string]: any } = {};
+
+        for (const [partyName, partyData] of Object.entries(parties)) {
+            const partyDataTyped = partyData as { jwt: string };
+            if (!partyDataTyped.jwt) {
+                res.status(400).json({
+                    error: `Missing JWT for party: ${partyName}`
+                });
+                return;
+            }
+
+            try {
+                // Validate each party's JWT
+                const partyClaims = validateToken(partyDataTyped.jwt);
+                
+                // Store validated claims
+                validatedParties[partyName] = {
+                    claims: partyClaims,
+                    token: partyDataTyped.jwt
+                };
+
+                // Create party entity for NPL engine
+                partyEntities[partyName] = {
+                    "entity": {
+                        "preferred_username": [partyClaims.preferred_username]
+                    },
+                    "access": {}
+                };
+
+                console.log(`✅ Validated party: ${partyName} (${partyClaims.preferred_username})`);
+
+            } catch (error: any) {
+                console.error(`❌ Failed to validate JWT for party ${partyName}:`, error.message);
+                res.status(401).json({
+                    error: `Invalid JWT for party ${partyName}: ${error.message}`
+                });
+                return;
+            }
+        }
+
+        // Prepare protocol instantiation data
+        const protocolData = {
+            ...initialData,
+            "@parties": partyEntities
+        };
+
+        // Debug: Log the exact payload being sent to NPL engine
+        console.log('🔍 DEBUG: Protocol instantiation payload:');
+        console.log(JSON.stringify(protocolData, null, 2));
+
+        // Use the first party's token to instantiate the protocol
+        // (all tokens are validated, so any will work for the API call)
+        const firstPartyToken = Object.values(validatedParties)[0].token;
+
+        console.log(`📋 Instantiating protocol with parties:`, Object.keys(partyEntities));
+
+        // Call NPL engine to instantiate the protocol
+        const nplResponse = await fetch(
+            `${NPL_ENGINE_URL}/npl/${pkg}/${protocol}/`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${firstPartyToken}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(protocolData)
+            }
+        );
+
+        if (!nplResponse.ok) {
+            const errorText = await nplResponse.text();
+            throw new Error(`NPL engine error: ${nplResponse.status} ${nplResponse.statusText} - ${errorText}`);
+        }
+
+        const protocolInstance = await nplResponse.json() as { '@id': string; '@state': string };
+
+        console.log(`✅ Protocol instantiated successfully: ${protocolInstance['@id']}`);
+
+        // After successful instantiation, refresh dynamic methods
+        dynamicMethodManager.forceRefresh();
+        console.log('🔄 DynamicMethodManager: Refreshed after protocol instantiation');
+
+        // Return the protocol instance with party binding information
+        res.json({
+            success: true,
+            result: {
+                protocolId: protocolInstance['@id'],
+                package: pkg,
+                protocol: protocol,
+                state: protocolInstance['@state'],
+                parties: Object.keys(partyEntities),
+                partyBindings: Object.fromEntries(
+                    Object.entries(validatedParties).map(([name, data]) => [
+                        name, 
+                        {
+                            identifier: data.claims.sub || data.claims.preferred_username,
+                            name: data.claims.name || data.claims.preferred_username,
+                            validated: true
+                        }
+                    ])
+                ),
+                instantiatedAt: new Date().toISOString(),
+                orchestrator: orchestratorClaims.preferred_username
+            },
+            message: `Protocol ${pkg}.${protocol} instantiated with ${Object.keys(parties).length} parties`,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('Protocol instantiation error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log("A2A Server (NPL Integration) running on port " + PORT);
   console.log("NPL Integration: Enabled");
   console.log("Protocol Deployment: Enabled");
+  console.log("Protocol Instantiation: Enabled");
   console.log("Available protocols: " + getAllProtocols().map((p: any) => `${p.package}.${p.protocol}`).join(", "));
 });
 

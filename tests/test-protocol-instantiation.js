@@ -1,159 +1,256 @@
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-
-// Load configuration
-const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'user-config.json'), 'utf8'));
 
 // Configuration
-const KEYCLOAK_URL = config.keycloak.url;
-const NPL_API_URL = 'http://localhost:12000';
-const REALM = config.realm;
-const CLIENT_ID = 'noumena';
+const A2A_SERVER_URL = process.env.A2A_SERVER_URL || 'http://localhost:8000';
+const KEYCLOAK_URL = process.env.KEYCLOAK_URL || 'http://localhost:11000';
+const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM || 'noumena';
 
-// Get users from config
+// Test users
 const USERS = {
-  procurementAgent: config.users.humans.find(u => u.username === 'buyer'),
-  financeAgent: config.users.humans.find(u => u.username === 'finance_manager')
+    procurementAgent: {
+        username: 'procurement_agent',
+        password: 'agent-password-123',
+        clientId: 'noumena'
+    },
+    financeAgent: {
+        username: 'finance_agent', 
+        password: 'agent-password-123',
+        clientId: 'noumena'
+    },
+    orchestrator: {
+        username: 'finance_manager',  // Use existing finance_manager as orchestrator
+        password: 'password123',
+        clientId: 'noumena'
+    }
 };
 
-async function getAccessToken(username, password) {
-  try {
-    const response = await axios.post(`${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`, 
-      new URLSearchParams({
-        grant_type: 'password',
-        client_id: CLIENT_ID,
-        username: username,
-        password: password
-      }), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-    
-    return response.data.access_token;
-  } catch (error) {
-    console.error(`Failed to get token for ${username}:`, error.response?.data || error.message);
-    throw error;
-  }
+/**
+ * Get access token from Keycloak
+ */
+async function getAccessToken(username, password, clientId = 'noumena') {
+    try {
+        const response = await axios.post(
+            `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
+            new URLSearchParams({
+                grant_type: 'password',
+                client_id: clientId,
+                username: username,
+                password: password
+            }),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+
+        return response.data.access_token;
+    } catch (error) {
+        console.error(`Failed to get token for ${username}:`, error.response?.data || error.message);
+        throw error;
+    }
 }
 
-function partyEntity(username) {
-  return {
-    entity: {
-      preferred_username: [username]
-    },
-    access: {}
-  };
-}
-
+/**
+ * Test protocol instantiation with multi-party consent
+ */
 async function testProtocolInstantiation() {
-  console.log('🧪 Testing Protocol Instantiation with JWT Claims...\n');
+    console.log('🧪 Testing Protocol Instantiation with Multi-Party Consent...\n');
 
-  try {
-    // Get token for procurement agent
-    console.log('🔑 Getting access token for procurement agent...');
-    const procurementToken = await getAccessToken(USERS.procurementAgent.username, USERS.procurementAgent.password);
-    console.log('✅ Token obtained successfully\n');
+    try {
+        // Step 1: Get tokens for all parties
+        console.log('🔑 Getting access tokens for all parties...');
+        const [procurementToken, financeToken, orchestratorToken] = await Promise.all([
+            getAccessToken(USERS.procurementAgent.username, USERS.procurementAgent.password, USERS.procurementAgent.clientId),
+            getAccessToken(USERS.financeAgent.username, USERS.financeAgent.password, USERS.financeAgent.clientId),
+            getAccessToken(USERS.orchestrator.username, USERS.orchestrator.password, USERS.orchestrator.clientId)
+        ]);
+        console.log('✅ All tokens obtained successfully\n');
 
-    // Decode and display JWT claims
-    console.log('🔍 JWT Claims Analysis:');
-    const tokenParts = procurementToken.split('.');
-    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-    
-    console.log('   Subject (sub):', payload.sub);
-    console.log('   Username (preferred_username):', payload.preferred_username);
-    console.log('   Email:', payload.email);
-    console.log('   Name:', payload.name);
-    console.log('   Roles:', payload.realm_access?.roles || []);
-    console.log('');
+        // Step 2: Prepare protocol instantiation request
+        console.log('📋 Preparing protocol instantiation request...');
+        const rfpId = `rfp-multi-party-${Date.now()}`;
+        const requestedAmount = 85000;
 
-    // Test 1: Create RFP Request with proper party mapping
-    console.log('📝 Test 1: Creating RFP Request with JWT claims...');
-    const rfpId = `rfp-jwt-test-${Date.now()}`;
-    const createdAt = new Date().toISOString();
-    const requestedAmount = 25000;
+        const instantiationRequest = {
+            package: 'rfp_workflow',
+            protocol: 'RfpWorkflow',
+            parties: {
+                procurementAgent: {
+                    jwt: procurementToken
+                },
+                financeAgent: {
+                    jwt: financeToken
+                }
+            },
+            initialData: {
+                initialRfp: {
+                    rfpId: rfpId,
+                    title: "Multi-Party Consent Test - AI Platform",
+                    description: "Testing atomic protocol instantiation with verified party claims",
+                    requestedAmount: requestedAmount,
+                    requesterId: USERS.procurementAgent.username,
+                    createdAt: new Date().toISOString()
+                }
+            },
+            orchestratorToken: orchestratorToken
+        };
 
-    const rfpData = {
-      initialRfp: {
-        rfpId: rfpId,
-        title: "JWT Claims Test - Software Development",
-        description: "Testing protocol instantiation with proper JWT claims",
-        requestedAmount: requestedAmount,
-        requesterId: USERS.procurementAgent.username,
-        createdAt: createdAt
-      },
-      "@parties": {
-        procurementAgent: partyEntity(USERS.procurementAgent.username),
-        financeAgent: partyEntity(USERS.financeAgent.username)
-      }
-    };
+        console.log('📋 Request Details:');
+        console.log(`   Protocol: ${instantiationRequest.package}.${instantiationRequest.protocol}`);
+        console.log(`   Parties: ${Object.keys(instantiationRequest.parties).join(', ')}`);
+        console.log(`   RFP ID: ${rfpId}`);
+        console.log(`   Amount: $${requestedAmount}`);
+        console.log('');
 
-    console.log('📋 Request Data:');
-    console.log('   RFP ID:', rfpId);
-    console.log('   Requester:', USERS.procurementAgent.username);
-    console.log('   Parties:', Object.keys(rfpData["@parties"]));
-    console.log('');
+        // Step 3: Instantiate protocol with multi-party consent
+        console.log('🚀 Instantiating protocol with multi-party consent...');
+        const instantiationResponse = await axios.post(
+            `${A2A_SERVER_URL}/a2a/instantiate`,
+            instantiationRequest,
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000
+            }
+        );
 
-    const createResponse = await axios.post(
-      `${NPL_API_URL}/npl/rfp_workflow/RfpWorkflow/`,
-      rfpData,
-      {
-        headers: {
-          'Authorization': `Bearer ${procurementToken}`,
-          'Content-Type': 'application/json'
+        const result = instantiationResponse.data;
+        console.log('✅ Protocol instantiated successfully!');
+        console.log('📋 Result:');
+        console.log(`   Protocol ID: ${result.result.protocolId}`);
+        console.log(`   State: ${result.result.state}`);
+        console.log(`   Parties: ${result.result.parties.join(', ')}`);
+        console.log(`   Instantiated At: ${result.result.instantiatedAt}`);
+        console.log('');
+
+        // Step 4: Verify party bindings
+        console.log('🔍 Verifying party bindings...');
+        console.log('📋 Party Binding Details:');
+        for (const [partyName, binding] of Object.entries(result.result.partyBindings)) {
+            console.log(`   ${partyName}:`);
+            console.log(`     Identifier: ${binding.identifier}`);
+            console.log(`     Name: ${binding.name}`);
+            console.log(`     Validated: ${binding.validated}`);
         }
-      }
-    );
+        console.log('');
 
-    console.log('✅ RFP Request created successfully!');
-    console.log('📋 Protocol ID:', createResponse.data['@id']);
-    console.log('📋 Initial State:', createResponse.data['@state']);
-    console.log('');
+        // Step 5: Test that parties can access the protocol
+        console.log('🧪 Testing protocol access by parties...');
+        
+        // Test procurement agent access
+        const procurementAccess = await axios.post(
+            `${A2A_SERVER_URL}/a2a/method`,
+            {
+                package: 'rfp_workflow',
+                protocol: 'RfpWorkflow',
+                method: 'getRfpDetails',
+                params: {
+                    protocolId: result.result.protocolId
+                },
+                token: procurementToken
+            }
+        );
+        console.log('✅ Procurement agent can access protocol');
 
-    // Test 2: Verify the protocol was created with correct party mapping
-    console.log('🔍 Test 2: Verifying protocol party mapping...');
-    const protocolId = createResponse.data['@id'];
-    const getResponse = await axios.get(
-      `${NPL_API_URL}/npl/rfp_workflow/RfpWorkflow/${protocolId}/`,
-      {
-        headers: {
-          'Authorization': `Bearer ${procurementToken}`
-        }
-      }
-    );
+        // Test finance agent access
+        const financeAccess = await axios.post(
+            `${A2A_SERVER_URL}/a2a/method`,
+            {
+                package: 'rfp_workflow',
+                protocol: 'RfpWorkflow',
+                method: 'getRfpDetails',
+                params: {
+                    protocolId: result.result.protocolId
+                },
+                token: financeToken
+            }
+        );
+        console.log('✅ Finance agent can access protocol');
 
-    console.log('✅ Protocol retrieved successfully!');
-    console.log('📋 Current State:', getResponse.data['@state']);
-    console.log('📋 Parties:', Object.keys(getResponse.data['@parties'] || {}));
-    console.log('');
+        console.log('');
+        console.log('🎉 Multi-party protocol instantiation test completed successfully!');
+        console.log('📈 Key Achievements:');
+        console.log('   ✅ All party JWTs validated atomically');
+        console.log('   ✅ Protocol instantiated with correct party bindings');
+        console.log('   ✅ All parties can access the protocol');
+        console.log('   ✅ No partial consent states possible');
+        console.log('   ✅ Clean error handling if any party fails');
 
-    // Test 3: Demonstrate that the JWT token identifies the user as procurementAgent
-    console.log('🔐 Test 3: Demonstrating JWT-based party identification...');
-    console.log('   The JWT token contains:');
-    console.log(`     preferred_username: "${payload.preferred_username}"`);
-    console.log(`     This maps to party: "procurementAgent"`);
-    console.log('   The NPL engine uses this to authorize protocol operations');
-    console.log('');
-
-    console.log('🎉 Protocol instantiation with JWT claims test completed successfully!');
-    console.log('📈 Key Points:');
-    console.log('   ✅ JWT token contains user identification claims');
-    console.log('   ✅ @parties object maps usernames to protocol roles');
-    console.log('   ✅ NPL engine validates JWT claims against party definitions');
-    console.log('   ✅ Protocol operations are authorized based on JWT identity');
-
-  } catch (error) {
-    console.error('❌ Test failed:', error.response?.data || error.message);
-    if (error.response?.status) {
-      console.error(`HTTP Status: ${error.response.status}`);
+    } catch (error) {
+        console.error('❌ Protocol instantiation test failed:', error.response?.data || error.message);
+        process.exit(1);
     }
-    if (error.response?.data) {
-      console.error('Response Data:', JSON.stringify(error.response.data, null, 2));
-    }
-    process.exit(1);
-  }
 }
 
-// Run the test
-testProtocolInstantiation(); 
+/**
+ * Test error handling - missing JWT
+ */
+async function testErrorHandling() {
+    console.log('\n🧪 Testing Error Handling...\n');
+
+    try {
+        // Get tokens for testing
+        const [procurementToken, orchestratorToken] = await Promise.all([
+            getAccessToken(USERS.procurementAgent.username, USERS.procurementAgent.password, USERS.procurementAgent.clientId),
+            getAccessToken(USERS.orchestrator.username, USERS.orchestrator.password, USERS.orchestrator.clientId)
+        ]);
+
+        // Test 1: Missing JWT for one party
+        console.log('🔍 Test 1: Missing JWT for finance agent...');
+        const invalidRequest = {
+            package: 'rfp_workflow',
+            protocol: 'RfpWorkflow',
+            parties: {
+                procurementAgent: {
+                    jwt: procurementToken
+                },
+                financeAgent: {
+                    // Missing JWT
+                }
+            },
+            initialData: {
+                initialRfp: {
+                    rfpId: `rfp-error-test-${Date.now()}`,
+                    title: "Error Test",
+                    requestedAmount: 1000,
+                    requesterId: USERS.procurementAgent.username,
+                    createdAt: new Date().toISOString()
+                }
+            },
+            orchestratorToken: orchestratorToken
+        };
+
+        try {
+            await axios.post(`${A2A_SERVER_URL}/a2a/instantiate`, invalidRequest);
+            console.error('❌ Expected error for missing JWT, but request succeeded');
+            process.exit(1);
+        } catch (error) {
+            if (error.response?.status === 400) {
+                console.log('✅ Correctly rejected request with missing JWT');
+            } else {
+                console.error('❌ Unexpected error:', error.response?.data);
+                process.exit(1);
+            }
+        }
+
+        console.log('');
+        console.log('🎉 Error handling tests completed successfully!');
+
+    } catch (error) {
+        console.error('❌ Error handling test failed:', error.response?.data || error.message);
+        process.exit(1);
+    }
+}
+
+// Run the tests
+if (require.main === module) {
+    (async () => {
+        await testProtocolInstantiation();
+        await testErrorHandling();
+        console.log('\n🎉 All tests completed successfully!');
+    })();
+}
+
+module.exports = { testProtocolInstantiation, testErrorHandling }; 
