@@ -1,40 +1,55 @@
-
 /**
  * Generated agent skills for NPL protocols
  * Defines available methods for each protocol
  */
 const AGENT_SKILLS = [
   {
-    "package": "test_deploy",
-    "protocol": "TestProtocol",
+    "package": "rfp_workflow",
+    "protocol": "RfpWorkflow",
     "methods": [
       {
         "name": "listmyprotocols",
-        "description": "List all protocol instances where the authenticated party is involved in test_deploy.TestProtocol"
+        "description": "List all protocol instances where the authenticated party is involved in rfp_workflow.RfpWorkflow"
       },
       {
         "name": "getmyprotocolcontent",
-        "description": "Get full content of a specific protocol instance for test_deploy.TestProtocol"
+        "description": "Get full content of a specific protocol instance for rfp_workflow.RfpWorkflow"
       },
       {
-        "name": "startprocessing",
-        "description": "startProcessing operation for test_deploy.TestProtocol"
+        "name": "getrfpdetails",
+        "description": "getRfpDetails operation for rfp_workflow.RfpWorkflow"
       },
       {
-        "name": "updatevalue",
-        "description": "updateValue operation for test_deploy.TestProtocol"
+        "name": "submitforapproval",
+        "description": "submitForApproval operation for rfp_workflow.RfpWorkflow"
       },
       {
-        "name": "complete",
-        "description": "complete operation for test_deploy.TestProtocol"
+        "name": "approvebudget",
+        "description": "approveBudget operation for rfp_workflow.RfpWorkflow"
       },
       {
-        "name": "fail",
-        "description": "fail operation for test_deploy.TestProtocol"
+        "name": "rejectbudget",
+        "description": "rejectBudget operation for rfp_workflow.RfpWorkflow"
       },
       {
-        "name": "getprocessingtime",
-        "description": "getProcessingTime operation for test_deploy.TestProtocol"
+        "name": "activaterfp",
+        "description": "activateRfp operation for rfp_workflow.RfpWorkflow"
+      },
+      {
+        "name": "cancelrfp",
+        "description": "cancelRfp operation for rfp_workflow.RfpWorkflow"
+      },
+      {
+        "name": "cancelrfpbyfinance",
+        "description": "cancelRfpByFinance operation for rfp_workflow.RfpWorkflow"
+      },
+      {
+        "name": "getcurrentbudget",
+        "description": "getCurrentBudget operation for rfp_workflow.RfpWorkflow"
+      },
+      {
+        "name": "getbudgetapproval",
+        "description": "getBudgetApproval operation for rfp_workflow.RfpWorkflow"
       }
     ]
   }

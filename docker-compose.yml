@@ -1,51 +1,99 @@
 services:
   # PostgreSQL database for NPL engine
-  postgres:
+  engine-db:
     image: postgres:14.13-alpine
     ports:
       - "5432:5432"
     environment:
       POSTGRES_PASSWORD: welcome123
       POSTGRES_DB: platform
+    volumes:
+      - engine_db_data:/var/lib/postgresql/data
+      - ./scripts/init-engine-db.sql:/docker-entrypoint-initdb.d/init-engine-db.sql:ro
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 1s
+      timeout: 5s
+      retries: 50
 
-  # Keycloak for IAM
+  # PostgreSQL database for Keycloak
+  keycloak-db:
+    image: postgres:14.13-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: testing
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+      - ./scripts/init-keycloak-db.sql:/docker-entrypoint-initdb.d/init-keycloak-db.sql:ro
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 1s
+      timeout: 5s
+      retries: 50
+
+  # Keycloak for IAM (using the working configuration)
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: keycloak/keycloak:latest
     ports:
       - "11000:11000"
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_HTTP_PORT: 11000
-      KC_HOSTNAME: keycloak
-      KC_HOSTNAME_URL: http://keycloak:11000
-      KC_HOSTNAME_ADMIN_URL: http://keycloak:11000
-    command: start-dev --import-realm
-    entrypoint: |
-      /bin/sh -c "
-      /opt/keycloak/bin/kc.sh import --file /tmp/keycloak-complete-realm.json
-      exec /opt/keycloak/bin/kc.sh start-dev
-      "
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HTTP_PORT=11000
+      - KC_HOSTNAME=keycloak
+      - KC_HOSTNAME_URL=http://keycloak:11000
+      - KC_HOSTNAME_ADMIN_URL=http://keycloak:11000
+      # Database configuration - using dedicated keycloak database
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak123
+    command: start-dev
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/11000;echo -e 'GET /health/ready HTTP/1.1\r\nhost: http://localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      interval: 1s
+      retries: 60
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+  # Keycloak provisioning service to import realm configuration
+  keycloak-provisioning:
+    image: curlimages/curl:latest
+    command: sh /tmp/keycloak-provisioning.sh
     volumes:
-      - ./keycloak-complete-realm.json:/tmp/keycloak-complete-realm.json:ro
+      - ./scripts/keycloak-provisioning.sh:/tmp/keycloak-provisioning.sh:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
 
   # NPL Engine
   engine:
     image: ghcr.io/noumenadigital/images/engine:latest
     depends_on:
-      - postgres
+      engine-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     ports:
       - "12000:12000"
       - "12400:12400"
       - "12700:12700"
     environment:
-      ENGINE_DB_URL: "jdbc:postgresql://postgres:5432/platform"
-      ENGINE_DB_USER: postgres
-      ENGINE_DB_PASSWORD: welcome123
+      ENGINE_DB_URL: "jdbc:postgresql://engine-db:5432/platform"
+      ENGINE_DB_USER: engine
+      ENGINE_DB_PASSWORD: engine123
       ENGINE_DB_SCHEMA: engine-schema
+      ENGINE_DB_READ_MODEL_USER: read_model
+      ENGINE_DB_READ_MODEL_PASSWORD: readmodel123
+      ENGINE_DB_HISTORY_SCHEMA: history-schema
       ENGINE_ALLOWED_ISSUERS: "http://keycloak:11000/realms/noumena"
       SWAGGER_SECURITY_AUTH_URL: "http://localhost:11000/realms/noumena"
       SWAGGER_SECURITY_CLIENT_ID: "noumena"
+      SWAGGER_ENGINE_ADMIN_URL: "http://localhost:12700/"
+      SWAGGER_ENGINE_MANAGEMENT_URL: "http://localhost:12400/"
       # Management API configuration - bind to all interfaces
       ENGINE_ADMIN_HOST: 0.0.0.0
       ENGINE_MANAGEMENT_HOST: 0.0.0.0
@@ -61,6 +109,7 @@ services:
       KEYCLOAK_URL: http://keycloak:11000
       KEYCLOAK_REALM: noumena
       KEYCLOAK_CLIENT_ID: noumena
+      NPL_TOKEN: ${NPL_TOKEN:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -93,4 +142,5 @@ services:
       - a2a-server
 
 volumes:
-  postgres_data:
+  engine_db_data:
+  keycloak_db_data:

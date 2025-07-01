@@ -142,16 +142,16 @@ fi
 
 # Step 13: Users automatically provisioned by Keycloak
 echo ""
-echo "👥 Step 13: Users automatically provisioned by Keycloak from keycloak-complete-realm.json"
+echo "👥 Step 13: Users automatically provisioned by Keycloak via keycloak-provisioning.sh"
 
 # Step 14: Generate test token
 echo ""
 echo "🎫 Step 14: Generating test token..."
-if [ -f "get-token.js" ]; then
-    node get-token.js
+if [ -f "tests/get-token.js" ]; then
+    node tests/get-token.js buyer
     echo "✅ Test token generated!"
 else
-    echo "⚠️  get-token.js not found, skipping token generation"
+    echo "⚠️  tests/get-token.js not found, skipping token generation"
 fi
 
 cd "$PROJECT_ROOT"

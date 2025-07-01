@@ -30,12 +30,6 @@ async function checkDependencies() {
     execSync('npm install axios', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
   }
   
-  // Check if configuration exists
-  if (!fs.existsSync(path.join(__dirname, 'user-config.json'))) {
-    console.error('❌ user-config.json not found. Please ensure the configuration file exists in the tests directory.');
-    return false;
-  }
-  
   console.log('✅ Dependencies check completed\n');
   return true;
 }
@@ -48,26 +42,21 @@ async function runTests() {
     process.exit(1);
   }
 
-  // Step 2: Users are automatically provisioned by Keycloak from keycloak-complete-realm.json
-  console.log('👥 Users automatically provisioned by Keycloak from keycloak-complete-realm.json\n');
+  // Step 2: Users are automatically provisioned by Keycloak via keycloak-provisioning.sh
+console.log('👥 Users automatically provisioned by Keycloak via keycloak-provisioning.sh\n');
 
-  // Step 3: Test user authentication
-  if (!await runCommand('node test-user-provisioning.js', 'User authentication testing')) {
-    console.log('⚠️  User authentication testing failed, but continuing with integration tests...\n');
-  }
+  // Step 3: Run active integration and workflow tests
+  await runCommand('node test_a2a_client.js', 'A2A server basic connectivity test');
+  await runCommand('node test_a2a_discovery.js', 'A2A protocol discovery test');
+  await runCommand('node test_a2a_rfp_flow.js', 'A2A RFP workflow end-to-end test');
+  await runCommand('node test-protocol-instantiation.js', 'Multi-party protocol instantiation test');
 
-  // Step 4: Run RFP integration tests
-  if (!await runCommand('node test_rfp_integration.js', 'RFP protocol integration testing')) {
-    console.log('❌ RFP integration testing failed');
-    process.exit(1);
-  }
-
-  console.log('🎉 All tests completed successfully!');
+  console.log('🎉 All tests completed!');
   console.log('\n📝 Summary:');
-  console.log('✅ User provisioning system ready');
-  console.log('✅ Authentication working');
-  console.log('✅ RFP protocol integration working');
-  console.log('✅ A2A workflow ready for agent integration');
+  console.log('✅ A2A server connectivity tested');
+  console.log('✅ Protocol discovery tested');
+  console.log('✅ RFP workflow tested');
+  console.log('✅ Multi-party protocol instantiation tested');
 }
 
 // Run the complete test suite

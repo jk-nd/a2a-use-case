@@ -2,8 +2,31 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// Load configuration
-const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'user-config.json'), 'utf8'));
+// Hardcoded configuration (matching keycloak-provisioning.sh)
+const config = {
+    realm: 'noumena',
+    keycloak: {
+        url: 'http://localhost:11000'
+    },
+    users: {
+        humans: [
+            {
+                username: 'buyer',
+                email: 'buyer@company.com',
+                firstName: 'John',
+                lastName: 'Buyer',
+                password: 'password123'
+            },
+            {
+                username: 'finance_manager',
+                email: 'finance@company.com',
+                firstName: 'Mike',
+                lastName: 'Finance',
+                password: 'password123'
+            }
+        ]
+    }
+};
 
 // Configuration
 const KEYCLOAK_URL = config.keycloak.url;

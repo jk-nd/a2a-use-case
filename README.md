@@ -250,6 +250,9 @@ curl -X POST http://localhost:8000/a2a/method \
 
 ### **1. Start the Infrastructure**
 
+The project includes comprehensive build scripts for different scenarios:
+
+#### **Option A: Quick Start (Existing Setup)**
 ```bash
 # Clone and start all services
 git clone <repository>
@@ -260,7 +263,39 @@ docker-compose up -d
 docker-compose ps
 ```
 
-### **2. Verify Services**
+#### **Option B: Full Build (Code Changes)**
+```bash
+# Complete build with fresh dependencies
+./scripts/build.sh
+```
+
+#### **Option C: Nuclear Rebuild (Clean Slate)**
+```bash
+# Complete clean rebuild - removes all containers, images, and caches
+./scripts/rebuild.sh
+```
+
+### **2. Service Architecture**
+
+The system uses **two separate databases** for complete isolation:
+
+| Service | Port | Database | Purpose |
+|---------|------|----------|---------|
+| **A2A Server** | 8000 | - | Policy hub and method routing |
+| **NPL Engine** | 12000 | engine-db (5432) | Protocol execution and state management |
+| **Keycloak** | 11000 | keycloak-db (5433) | Identity and access management |
+| **Procurement Agent** | 8001 | - | Procurement workflow agent |
+| **Finance Agent** | 8002 | - | Finance workflow agent |
+
+### **3. Keycloak Setup**
+
+The system automatically provisions Keycloak with:
+- **Realm**: `noumena`
+- **Users**: buyer, supplier, finance_manager, procurement_agent, finance_agent, supplier_agent
+- **Client**: `noumena` (public client for API access)
+- **Provisioning**: Automated via `scripts/keycloak-provisioning.sh`
+
+### **4. Verify Services**
 
 ```bash
 # Test A2A server
@@ -273,16 +308,28 @@ curl http://localhost:12000/actuator/health
 curl http://localhost:11000/realms/noumena
 ```
 
-### **3. Get Authentication Token**
+### **5. Get Authentication Token**
+
+The build scripts automatically generate a test token, or you can generate one manually:
 
 ```bash
-# Get JWT token for testing
-curl -X POST http://localhost:11000/realms/noumena/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=noumena&username=alice&password=password123"
+# Use the enhanced token script
+cd tests
+
+# Get token for a specific user
+node get-token.js buyer
+
+# Get token for finance manager
+node get-token.js finance_manager
+
+# Get token for procurement agent
+node get-token.js procurement_agent
+
+# Save token to specific file
+node get-token.js alice my-token.txt
 ```
 
-### **4. Test Dynamic Protocol Deployment**
+### **6. Test Dynamic Protocol Deployment**
 
 ```bash
 # List current protocols
@@ -302,28 +349,9 @@ curl -X POST http://localhost:8000/a2a/deploy \
 curl http://localhost:8000/a2a/skills
 ```
 
-### **5. JWT Tokens and Protocol Instantiation**
+### **7. JWT Tokens and Protocol Instantiation**
 
 The NPL engine requires JWT tokens with specific claims to instantiate and invoke protocols. The token must contain claims that identify the user as a party in the protocol.
-
-#### **Getting JWT Tokens**
-
-```bash
-# Use the enhanced token script
-cd tests
-
-# Get token for a specific user
-node get-token.js buyer
-
-# Get token for finance manager
-node get-token.js finance_manager
-
-# Get token for procurement agent
-node get-token.js procurement_agent
-
-# Save token to specific file
-node get-token.js alice my-token.txt
-```
 
 #### **JWT Claims Structure**
 
@@ -412,7 +440,7 @@ node deploy-test-protocol.js buyer
    ↓
 5. Policy Enforcement → NPL Protocol Instance
    ↓
-6. State Update → PostgreSQL
+6. State Update → PostgreSQL (engine-db)
    ↓
 7. Response → Agent
 ```
@@ -424,6 +452,7 @@ node deploy-test-protocol.js buyer
 - **Protocol-Level Authorization**: NPL protocols enforce fine-grained permissions
 - **Audit Trail**: All interactions are logged for compliance
 - **State Isolation**: Protocol instances are isolated by party permissions
+- **Database Isolation**: Separate databases for engine and Keycloak prevent token conflicts
 
 ## 🧪 **Testing**
 
@@ -453,6 +482,16 @@ node test_agent_connection.js
 
 ## 🔧 **Development**
 
+### **Build Scripts**
+
+The project includes three build approaches:
+
+| Script | Use Case | What It Does |
+|--------|----------|--------------|
+| `docker-compose up` | Quick start | Starts existing services |
+| `./scripts/build.sh` | Regular development | Rebuilds A2A server, clears caches |
+| `./scripts/rebuild.sh` | Troubleshooting | Nuclear clean rebuild |
+
 ### **A2A Server Development**
 
 ```bash
@@ -461,7 +500,7 @@ cd a2a-server
 # Install dependencies
 npm install
 
-# Development mode with live reload
+# Start development server
 npm run dev
 
 # Generate methods from NPL OpenAPI
@@ -539,7 +578,7 @@ cd a2a
 npm install
 
 # Start development environment
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose up -d
 
 # Run tests
 npm test

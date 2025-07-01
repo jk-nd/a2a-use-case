@@ -83,8 +83,8 @@ A2A Server (Hybrid)
 
 4. **Start Server**
    ```bash
-   # Development mode
-   npm run dev
+   # Start development server
+npm run dev
    
    # Production mode
    npm start

@@ -474,8 +474,25 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
 
     } catch (error: any) {
         console.error('Protocol deployment error:', error);
+        
+        // Try to extract detailed error information from axios response
+        let errorMessage = error.message;
+        let errorDetails = {};
+        
+        if (error.response) {
+            errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
+            errorDetails = {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                headers: error.response.headers,
+                data: error.response.data
+            };
+            console.error('Detailed error response:', JSON.stringify(errorDetails, null, 2));
+        }
+        
         res.status(500).json({
-            error: error.message,
+            error: errorMessage,
+            details: errorDetails,
             timestamp: new Date().toISOString()
         });
     }
@@ -501,48 +518,64 @@ app.post('/a2a/refresh', async (req: Request, res: Response): Promise<void> => {
 
         console.log('Manual A2A method refresh requested');
 
-        // Regenerate A2A methods
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
+        // Force discovery and regeneration using the new automatic system
+        await dynamicMethodManager.forceDiscovery();
 
-        try {
-            const { stdout, stderr } = await execAsync('node generate-a2a-methods.js', {
-                cwd: process.cwd(),
-                env: {
-                    ...process.env,
-                    NPL_ENGINE_URL: NPL_ENGINE_URL,
-                    NPL_TOKEN: token
-                }
-            });
-
-            if (stderr) {
-                console.warn('Generator warnings:', stderr);
-            }
-
-            // Force refresh of dynamic method manager
-            dynamicMethodManager.forceRefresh();
-
-            res.json({
-                success: true,
-                result: {
-                    a2aMethodsRegenerated: true,
-                    availableOperations: dynamicMethodManager.getAvailableOperations().length
-                },
-                message: 'A2A methods refreshed successfully',
-                timestamp: new Date().toISOString()
-            });
-
-        } catch (genError: any) {
-            console.error('Failed to refresh A2A methods:', genError);
-            res.status(500).json({
-                error: `Failed to refresh A2A methods: ${genError.message}`,
-                timestamp: new Date().toISOString()
-            });
-        }
+        res.json({
+            success: true,
+            result: {
+                a2aMethodsRegenerated: true,
+                availableOperations: dynamicMethodManager.getAvailableOperations().length
+            },
+            message: 'A2A methods refreshed successfully',
+            timestamp: new Date().toISOString()
+        });
 
     } catch (error: any) {
         console.error('Manual refresh error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * Force discovery endpoint for immediate protocol discovery
+ * Triggers immediate discovery and regeneration of methods
+ */
+app.post('/a2a/discover', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            res.status(400).json({
+                error: 'Missing required parameter: token'
+            });
+            return;
+        }
+
+        // Validate token
+        const claims = validateToken(token);
+
+        console.log('Manual protocol discovery requested');
+
+        // Force discovery and regeneration
+        await dynamicMethodManager.forceDiscovery();
+
+        res.json({
+            success: true,
+            result: {
+                discoveryTriggered: true,
+                availableOperations: dynamicMethodManager.getAvailableOperations().length,
+                availableMappings: dynamicMethodManager.getAllMappings().length
+            },
+            message: 'Protocol discovery completed successfully',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('Protocol discovery error:', error);
         res.status(500).json({
             error: error.message,
             timestamp: new Date().toISOString()

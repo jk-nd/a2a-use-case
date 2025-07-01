@@ -58,13 +58,63 @@ function decodeJWT(token) {
 }
 
 function loadConfig() {
-    try {
-        const configPath = path.join(__dirname, 'user-config.json');
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch (error) {
-        console.error('Failed to load user config:', error.message);
-        return null;
-    }
+    // Hardcoded user configuration (matching keycloak-provisioning.sh)
+    return {
+        realm: 'noumena',
+        keycloak: {
+            url: 'http://localhost:11000',
+            admin_username: 'admin',
+            admin_password: 'admin'
+        },
+        users: {
+            humans: [
+                {
+                    username: 'buyer',
+                    email: 'buyer@company.com',
+                    firstName: 'John',
+                    lastName: 'Buyer',
+                    password: 'password123'
+                },
+                {
+                    username: 'supplier',
+                    email: 'supplier@vendor.com',
+                    firstName: 'Jane',
+                    lastName: 'Supplier',
+                    password: 'password123'
+                },
+                {
+                    username: 'finance_manager',
+                    email: 'finance@company.com',
+                    firstName: 'Mike',
+                    lastName: 'Finance',
+                    password: 'password123'
+                }
+            ],
+            agents: [
+                {
+                    username: 'procurement_agent',
+                    email: 'procurement-agent@company.com',
+                    firstName: 'Procurement',
+                    lastName: 'Agent',
+                    password: 'agent-password-123'
+                },
+                {
+                    username: 'finance_agent',
+                    email: 'finance-agent@company.com',
+                    firstName: 'Finance',
+                    lastName: 'Agent',
+                    password: 'agent-password-123'
+                },
+                {
+                    username: 'supplier_agent',
+                    email: 'supplier-agent@vendor.com',
+                    firstName: 'Supplier',
+                    lastName: 'Agent',
+                    password: 'agent-password-123'
+                }
+            ]
+        }
+    };
 }
 
 async function main() {

@@ -107,16 +107,16 @@ else
     exit 1
 fi
 
-# Users are automatically provisioned by Keycloak from keycloak-complete-realm.json
-echo "👥 Users automatically provisioned by Keycloak from keycloak-complete-realm.json"
+# Users are automatically provisioned by Keycloak via keycloak-provisioning.sh
+echo "👥 Users automatically provisioned by Keycloak via keycloak-provisioning.sh"
 
 # Generate test token
 echo "🎫 Generating test token..."
-if [ -f "get-token.js" ]; then
-    node get-token.js
+if [ -f "tests/get-token.js" ]; then
+    node tests/get-token.js buyer
     echo "✅ Test token generated!"
 else
-    echo "⚠️  get-token.js not found, skipping token generation"
+    echo "⚠️  tests/get-token.js not found, skipping token generation"
 fi
 
 cd "$PROJECT_ROOT"

@@ -9,7 +9,8 @@ async function deployRfpProtocol() {
     // Get token for buyer
     console.log('🔑 Getting token for buyer...');
     const { execSync } = require('child_process');
-    execSync('node get-token.js buyer', { stdio: 'inherit' });
+    const getTokenPath = path.join(__dirname, 'get-token.js');
+    execSync(`node ${getTokenPath} buyer`, { stdio: 'inherit' });
     
     // Read the token
     const token = fs.readFileSync('test-token.txt', 'utf8').trim();

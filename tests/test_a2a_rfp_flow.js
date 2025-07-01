@@ -2,8 +2,31 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// Load configuration
-const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'user-config.json'), 'utf8'));
+// Hardcoded configuration (matching keycloak-provisioning.sh)
+const config = {
+    realm: 'noumena',
+    keycloak: {
+        url: 'http://localhost:11000'
+    },
+    users: {
+        humans: [
+            {
+                username: 'buyer',
+                email: 'buyer@company.com',
+                firstName: 'John',
+                lastName: 'Buyer',
+                password: 'password123'
+            },
+            {
+                username: 'finance_manager',
+                email: 'finance@company.com',
+                firstName: 'Mike',
+                lastName: 'Finance',
+                password: 'password123'
+            }
+        ]
+    }
+};
 
 // Configuration
 const KEYCLOAK_URL = config.keycloak.url;
@@ -172,7 +195,7 @@ async function testA2ARfpFlow() {
     console.log('📤 Step 2: Procurement Agent submits RFP for approval via A2A...');
     const submitResult = await simulateAgentA2ARequest(
       'Procurement Agent',
-      'procurement.submit_rfp',
+      'rfp_workflow.RfpWorkflow.submitForApproval',
       { protocolId: protocolId },
       procurementToken
     );
@@ -185,7 +208,7 @@ async function testA2ARfpFlow() {
     console.log('💰 Step 3: Finance Agent approves budget via A2A...');
     const approveResult = await simulateAgentA2ARequest(
       'Finance Agent',
-      'finance.approve_budget',
+      'rfp_workflow.RfpWorkflow.approveBudget',
       {
         protocolId: protocolId,
         approvedAmount: requestedAmount,
@@ -202,7 +225,7 @@ async function testA2ARfpFlow() {
     console.log('🚦 Step 4: Procurement Agent activates RFP via A2A...');
     const activateResult = await simulateAgentA2ARequest(
       'Procurement Agent',
-      'procurement.track_rfp',
+      'rfp_workflow.RfpWorkflow.activateRfp',
       { protocolId: protocolId },
       procurementToken
     );
@@ -217,7 +240,7 @@ async function testA2ARfpFlow() {
     // Get RFP details via A2A
     const detailsResult = await simulateAgentA2ARequest(
       'Procurement Agent',
-      'procurement.track_rfp',
+      'rfp_workflow.RfpWorkflow.getRfpDetails',
       { protocolId: protocolId },
       procurementToken
     );
@@ -225,7 +248,7 @@ async function testA2ARfpFlow() {
     // Get current budget via A2A
     const budgetResult = await simulateAgentA2ARequest(
       'Finance Agent',
-      'finance.check_budget_availability',
+      'rfp_workflow.RfpWorkflow.getCurrentBudget',
       { protocolId: protocolId },
       financeToken
     );
@@ -233,7 +256,7 @@ async function testA2ARfpFlow() {
     // Get budget approval status via A2A
     const approvalStatusResult = await simulateAgentA2ARequest(
       'Finance Agent',
-      'finance.get_budget_status',
+      'rfp_workflow.RfpWorkflow.getBudgetApproval',
       { protocolId: protocolId },
       financeToken
     );

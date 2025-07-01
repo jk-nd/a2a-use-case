@@ -1,0 +1,43 @@
+package auto_discovery
+
+/**
+ * Simple test protocol for automatic discovery demonstration
+ * @param initiator The party initiating the test
+ * @param responder The party responding to the test
+ */
+@api
+protocol[initiator, responder] AutoTest() {
+    initial state created;
+    final state completed;
+    final state failed;
+
+    /**
+     * Start the test process
+     */
+    @api
+    permission[initiator] startTest() | created {
+        become completed;
+    };
+
+    /**
+     * Fail the test process
+     */
+    @api
+    permission[responder] failTest() | created {
+        become failed;
+    };
+
+    /**
+     * Get test status
+     */
+    @api
+    permission[initiator | responder] getStatus() returns Text | created, completed, failed {
+        if (activeState().getOrFail() == States.created) {
+            return "created";
+        } else if (activeState().getOrFail() == States.completed) {
+            return "completed";
+        } else {
+            return "failed";
+        };
+    };
+} 

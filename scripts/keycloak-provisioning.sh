@@ -1,3 +1,21 @@
+#!/bin/sh
+
+echo 'Waiting for Keycloak to be ready...'
+while ! curl -s http://keycloak:11000/health/ready > /dev/null; do
+  sleep 2
+done
+
+echo 'Keycloak is ready, waiting a bit more for full startup...'
+sleep 10
+
+echo 'Getting admin token...'
+TOKEN_RESPONSE=$(curl -s -X POST http://keycloak:11000/realms/master/protocol/openid-connect/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'username=admin&password=admin&grant_type=password&client_id=admin-cli')
+TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+echo 'Creating realm configuration...'
+cat > /tmp/realm-config.json << 'EOF'
 {
   "realm": "noumena",
   "enabled": true,
@@ -155,4 +173,35 @@
       "protocol": "openid-connect"
     }
   ]
-} 
+}
+EOF
+
+echo 'Importing realm configuration...'
+echo "Using token: ${TOKEN:0:20}..."
+RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://keycloak:11000/admin/realms \
+  -H 'Authorization: Bearer '"$TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d @/tmp/realm-config.json)
+
+HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
+RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")
+
+echo "HTTP Status: $HTTP_STATUS"
+echo "Response: $RESPONSE_BODY"
+
+if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "409" ]; then
+  echo '✅ Realm configuration imported successfully (201) or already exists (409)'
+  echo 'Testing realm access...'
+  sleep 3
+  REALM_TEST=$(curl -s http://keycloak:11000/realms/noumena)
+  if echo "$REALM_TEST" | grep -q "realm"; then
+    echo '✅ Realm "noumena" is now accessible'
+  else
+    echo '❌ Realm import may have failed'
+    echo "Realm test response: $REALM_TEST"
+  fi
+else
+  echo '❌ Failed to import realm configuration'
+  echo "HTTP Status: $HTTP_STATUS"
+  echo "Response: $RESPONSE_BODY"
+fi 
