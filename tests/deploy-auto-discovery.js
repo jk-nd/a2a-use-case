@@ -10,7 +10,7 @@ console.log('Token starts with:', token.substring(0, 50) + '...');
 console.log('Token ends with:', '...' + token.substring(token.length - 50));
 
 // Read the NPL protocol file
-const nplCode = fs.readFileSync('tests/test-auto-discovery.npl', 'utf8');
+const nplCode = fs.readFileSync('test-auto-discovery.npl', 'utf8');
 
 // Deploy the protocol
 async function deployProtocol() {

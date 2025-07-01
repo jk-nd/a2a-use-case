@@ -137,12 +137,12 @@ async function main() {
                 console.log(`    ${user.username} (${user.firstName} ${user.lastName})`);
             });
         } else {
-            console.log('Default user: alice');
+            console.log('Default user: buyer');
         }
         
         console.log('');
         console.log('Examples:');
-        console.log('  node get-token.js alice');
+        console.log('  node get-token.js buyer');
         console.log('  node get-token.js buyer token.txt');
         console.log('  node get-token.js finance_manager');
         process.exit(1);

@@ -11,7 +11,7 @@ const A2A_SERVER_URL = 'http://localhost:8000';
 const NPL_ENGINE_URL = 'http://localhost:12000';
 const NPL_MANAGEMENT_URL = 'http://localhost:12400';
 
-async function getToken(username = 'alice') {
+async function getToken(username = 'buyer') {
     try {
         console.log(`🔑 Getting access token for ${username}...`);
         
@@ -186,7 +186,7 @@ async function testNewMethod(token) {
         // Create a new instance of the deployed protocol with proper JWT claims
         const createResponse = await axios.post(`${NPL_ENGINE_URL}/npl/test_deploy/TestProtocol/`, {
             issuer: `${username}@example.com`,
-            recipient: 'bob@example.com',
+                            recipient: 'supplier@vendor.com',
             initialValue: 100,
             "@parties": {
                 issuer: {
@@ -197,7 +197,7 @@ async function testNewMethod(token) {
                 },
                 recipient: {
                     entity: {
-                        preferred_username: ["bob"]
+                        preferred_username: ["supplier"]
                     },
                     access: {}
                 }
@@ -235,7 +235,7 @@ async function main() {
         console.log('🚀 Starting dynamic protocol deployment test...\n');
         
         // Get username from command line args or use default
-        const username = process.argv[2] || 'alice';
+        const username = process.argv[2] || 'buyer';
         console.log(`👤 Using username: ${username}\n`);
         
         // Step 1: Get token for the specified user
