@@ -48,14 +48,14 @@ console.log('👥 Users automatically provisioned by Keycloak via keycloak-provi
   // Step 3: Run active integration and workflow tests
   await runCommand('node test_a2a_client.js', 'A2A server basic connectivity test');
   await runCommand('node test_a2a_discovery.js', 'A2A protocol discovery test');
-  await runCommand('node test_a2a_rfp_flow.js', 'A2A RFP workflow end-to-end test');
+  await runCommand('node test_rfp_deployment_and_workflow.js', 'RFP deployment and workflow integration test');
   await runCommand('node test-protocol-instantiation.js', 'Multi-party protocol instantiation test');
 
   console.log('🎉 All tests completed!');
   console.log('\n📝 Summary:');
   console.log('✅ A2A server connectivity tested');
   console.log('✅ Protocol discovery tested');
-  console.log('✅ RFP workflow tested');
+  console.log('✅ RFP deployment and workflow tested');
   console.log('✅ Multi-party protocol instantiation tested');
 }
 

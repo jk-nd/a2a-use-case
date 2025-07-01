@@ -26,14 +26,38 @@ interface ProtocolInfo {
 }
 
 /**
+ * Extract protocol name from OpenAPI paths
+ * The NPL engine uses paths like /npl/{package}/{protocol}/...
+ */
+function extractProtocolNameFromPaths(openAPISpec: any, packageName: string): string {
+    const paths = Object.keys(openAPISpec.paths || {});
+    
+    // Look for paths that match the pattern /npl/{package}/{protocol}/
+    // Exclude the OpenAPI spec path which is /npl/{package}/-/openapi.json
+    for (const path of paths) {
+        // Skip the OpenAPI spec path
+        if (path.includes('/-/openapi.json')) {
+            continue;
+        }
+        
+        const match = path.match(new RegExp(`^/npl/${packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([^/]+)/`));
+        if (match) {
+            return match[1]; // Return the protocol name
+        }
+    }
+    
+    // Fallback to package name if no protocol found
+    return packageName;
+}
+
+/**
  * Generate method handlers from OpenAPI spec
  */
 export function generateMethodHandlers(openAPISpec: any, packageName: string): MethodHandlers {
     const handlers: MethodHandlers = {};
-    const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
     
-    // Extract protocol name from OpenAPI info
-    const protocolName = openAPISpec.info?.title || packageName;
+    // Extract protocol name from OpenAPI paths
+    const protocolName = extractProtocolNameFromPaths(openAPISpec, packageName);
     
     // Process each path in the OpenAPI spec
     for (const [path, methods] of Object.entries(openAPISpec.paths || {})) {
@@ -43,68 +67,89 @@ export function generateMethodHandlers(openAPISpec: any, packageName: string): M
                 const operationId = op.operationId;
                 
                 if (operationId) {
-                    // Generate handler function
-                    handlers[operationId] = async (params: any) => {
-                        const { token, ...requestParams } = params;
-                        
-                        // Build request URL
-                        let requestPath = path;
-                        
-                        // Replace path parameters with values from params
-                        const pathParams = path.match(/\{([^}]+)\}/g);
-                        if (pathParams) {
-                            for (const param of pathParams) {
-                                const paramName = param.slice(1, -1);
-                                const paramValue = requestParams[paramName];
-                                if (paramValue !== undefined) {
-                                    requestPath = requestPath.replace(param, paramValue);
+                    // Create a self-contained handler function that captures all needed values
+                    const createHandler = (capturedPath: string, capturedHttpMethod: string) => {
+                        return async (params: any) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = capturedPath;
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = capturedPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
                                 }
                             }
-                        }
-                        
-                        // Prepare request options
-                        const requestOptions: any = {
-                            method: httpMethod.toUpperCase(),
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
+                            
+                            // Prepare request options
+                            const requestOptions: any = {
+                                method: capturedHttpMethod.toUpperCase(),
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if (capturedHttpMethod === 'post' || capturedHttpMethod === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
                             }
+                            
+                            // Add query parameters for GET requests
+                            if (capturedHttpMethod === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !capturedPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${(responseData as any).error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
                         };
-                        
-                        // Add body for POST/PUT requests
-                        if (httpMethod === 'post' || httpMethod === 'put') {
-                            requestOptions.body = JSON.stringify(requestParams);
-                        }
-                        
-                        // Add query parameters for GET requests
-                        if (httpMethod === 'get') {
-                            const queryParams = new URLSearchParams();
-                            for (const [key, value] of Object.entries(requestParams)) {
-                                if (value !== undefined && !path.includes(`{${key}}`)) {
-                                    queryParams.append(key, String(value));
-                                }
-                            }
-                            if (queryParams.toString()) {
-                                requestPath += `?${queryParams.toString()}`;
-                            }
-                        }
-                        
-                        // Make request to NPL engine
-                        const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
-                        
-                        if (!response.ok) {
-                            throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
-                        }
-                        
-                        // Parse response
-                        const contentType = response.headers.get('content-type');
-                        if (contentType && contentType.includes('application/json')) {
-                            return await response.json();
-                        } else {
-                            return await response.text();
-                        }
                     };
+                    
+                    handlers[operationId] = createHandler(path, httpMethod);
                 }
             }
         }
@@ -119,8 +164,8 @@ export function generateMethodHandlers(openAPISpec: any, packageName: string): M
 export function generateMethodMappings(openAPISpec: any, packageName: string): MethodMapping[] {
     const mappings: MethodMapping[] = [];
     
-    // Extract protocol name from OpenAPI info
-    const protocolName = openAPISpec.info?.title || packageName;
+    // Extract protocol name from OpenAPI paths
+    const protocolName = extractProtocolNameFromPaths(openAPISpec, packageName);
     
     // Process each path in the OpenAPI spec
     for (const [path, methods] of Object.entries(openAPISpec.paths || {})) {
@@ -131,8 +176,11 @@ export function generateMethodMappings(openAPISpec: any, packageName: string): M
                 
                 if (operationId) {
                     // Convert operation ID to method name
-                    const methodName = operationId.toLowerCase();
-                    
+                    let methodName = operationId.toLowerCase();
+                    // If operationId starts with protocolName + '_', strip it
+                    if (operationId.startsWith(protocolName + '_')) {
+                        methodName = operationId.substring(protocolName.length + 1).toLowerCase();
+                    }
                     mappings.push({
                         package: packageName,
                         protocol: protocolName,
@@ -155,8 +203,8 @@ export function generateMethodMappings(openAPISpec: any, packageName: string): M
 export function generateAgentSkills(openAPISpec: any, packageName: string): ProtocolInfo[] {
     const skills: ProtocolInfo[] = [];
     
-    // Extract protocol name from OpenAPI info
-    const protocolName = openAPISpec.info?.title || packageName;
+    // Extract protocol name from OpenAPI paths
+    const protocolName = extractProtocolNameFromPaths(openAPISpec, packageName);
     
     const methods: Array<{ name: string; description: string }> = [];
     

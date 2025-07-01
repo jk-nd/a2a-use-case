@@ -23,7 +23,16 @@ import {
 import { dynamicMethodManager } from './dynamic-method-manager';
 
 // Import generated agent skills (for /a2a/skills endpoint)
-const { getProtocolSkills, getAllProtocols } = require('./agent-skills');
+let getProtocolSkills: any, getAllProtocols: any;
+try {
+    const agentSkillsModule = require('./agent-skills');
+    getProtocolSkills = agentSkillsModule.getProtocolSkills;
+    getAllProtocols = agentSkillsModule.getAllProtocols;
+} catch (error) {
+    console.log('Agent skills module not found, will be generated dynamically');
+    getProtocolSkills = () => [];
+    getAllProtocols = () => [];
+}
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -241,7 +250,10 @@ app.post('/a2a/method', async (req: Request, res: Response): Promise<void> => {
         // Handle with NPL engine using dynamic loading
         console.log(`Routing to NPL engine: ${pkg}.${protocol}.${method}`);
         const mapping = dynamicMethodManager.findMethodMapping(pkg, protocol, method);
+        console.log(`DEBUG: Looking for method ${method} in ${pkg}.${protocol}`);
+        console.log(`DEBUG: Found mapping:`, mapping);
         if (!mapping) {
+            console.log(`DEBUG: Available mappings for ${pkg}.${protocol}:`, dynamicMethodManager.getAllMappings().filter(m => m.package === pkg && m.protocol === protocol));
             res.status(404).json({
                 error: `Method ${method} not found for ${pkg}.${protocol}`
             });

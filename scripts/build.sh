@@ -36,9 +36,13 @@ docker rmi a2a-server:latest 2>/dev/null || echo "No existing image to remove"
 echo "🧹 Clearing Docker build cache..."
 docker builder prune -af
 
-# Clear Docker system cache
-echo "🧹 Clearing Docker system cache..."
-docker system prune -f
+# Clear Docker system cache and volumes
+echo "🧹 Clearing Docker system cache and volumes..."
+docker system prune -f --volumes
+echo "   Clearing all volumes..."
+docker volume prune -f
+echo "   Removing specific project volumes..."
+docker volume rm a2a_engine_db_data a2a_keycloak_db_data a2a_postgres_data 2>/dev/null || echo "Some volumes may not exist"
 
 # Install dependencies and verify TypeScript source
 echo "🔧 Installing dependencies..."

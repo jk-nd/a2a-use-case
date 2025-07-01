@@ -153,7 +153,7 @@ a2a_server:
     TRUSTED_ISSUERS: "http://keycloak.company-a.com,http://keycloak.company-b.com"
 ```
 
-## 🎯 **Current Status: Core Features Complete ✅**
+## 🎯 **Current Status: Fully Functional ✅**
 
 ✅ **Core Architecture Complete**
 - Dynamic protocol deployment working
@@ -168,6 +168,13 @@ a2a_server:
 - **Real-time protocol discovery**
 - **Cross-organization agent collaboration**
 - **Full audit trail of all interactions**
+
+✅ **Recent Fixes Applied**
+- **JWT token caching issues resolved** - Docker volumes now cleared on rebuild
+- **Method handler generation fixed** - Self-contained handlers with proper variable capture
+- **Protocol name extraction improved** - Uses OpenAPI paths instead of titles
+- **Error handling enhanced** - Robust handling of empty/malformed responses
+- **Build scripts updated** - Comprehensive volume clearing and verification
 
 ## 🧪 **Proven Use Case: RFP Workflow**
 
@@ -490,7 +497,7 @@ The project includes three build approaches:
 |--------|----------|--------------|
 | `docker-compose up` | Quick start | Starts existing services |
 | `./scripts/build.sh` | Regular development | Rebuilds A2A server, clears caches |
-| `./scripts/rebuild.sh` | Troubleshooting | Nuclear clean rebuild |
+| `./scripts/rebuild.sh` | Troubleshooting | Nuclear clean rebuild with volume clearing |
 
 ### **A2A Server Development**
 

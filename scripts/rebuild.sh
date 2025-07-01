@@ -34,15 +34,19 @@ echo ""
 echo "🗑️  Step 2: Removing all Docker images..."
 docker rmi $(docker images -q) 2>/dev/null || echo "No images to remove"
 
-# Step 3: Clear all Docker caches
+# Step 3: Clear all Docker caches and volumes
 echo ""
-echo "🧹 Step 3: Clearing all Docker caches..."
+echo "🧹 Step 3: Clearing all Docker caches and volumes..."
 echo "   Clearing build cache..."
 docker builder prune -af
 echo "   Clearing system cache..."
 docker system prune -af --volumes
 echo "   Clearing network cache..."
 docker network prune -f
+echo "   Clearing all volumes..."
+docker volume prune -f
+echo "   Removing specific project volumes..."
+docker volume rm a2a_engine_db_data a2a_keycloak_db_data a2a_postgres_data 2>/dev/null || echo "Some volumes may not exist"
 
 # Step 4: Clear npm caches
 echo ""

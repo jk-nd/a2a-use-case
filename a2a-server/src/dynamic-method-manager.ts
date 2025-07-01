@@ -274,11 +274,22 @@ class DynamicMethodManager {
      */
     public findMethodMapping(pkg: string, protocol: string, method: string): MethodMapping | undefined {
         this.checkAndRefresh();
-        return this.methodMappings.find(m => 
+        console.log(`DEBUG: findMethodMapping called with pkg=${pkg}, protocol=${protocol}, method=${method}`);
+        console.log(`DEBUG: Available mappings count: ${this.methodMappings.length}`);
+        // Print all mappings for inspection
+        for (const m of this.methodMappings) {
+            console.log(`DEBUG: mapping: package=${m.package}, protocol=${m.protocol}, method=${m.method}`);
+        }
+        console.log(`DEBUG: Available mappings for ${pkg}.${protocol}:`, this.methodMappings.filter(m => m.package === pkg && m.protocol === protocol));
+        
+        const result = this.methodMappings.find(m => 
             m.package === pkg && 
             m.protocol === protocol && 
             m.method === method.toLowerCase()
         );
+        
+        console.log(`DEBUG: findMethodMapping result:`, result);
+        return result;
     }
 
     /**
