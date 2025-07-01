@@ -23,3 +23,10 @@
 - [ ] **NPL Compiler Integration**: Real-time compilation and validation
 - [ ] **Testing Framework**: Automated testing of NPL workflows
 
+### **5. MCP (Model Context Protocol) Integration**
+- [ ] **MCP Server Implementation**: Create MCP server that wraps A2A endpoints
+- [ ] **Tool Definitions**: Define MCP tools for protocol discovery and execution
+- [ ] **AI Assistant Integration**: Enable Claude/GPT to interact with protocols
+- [ ] **Natural Language Interface**: AI assistants can help humans interact with protocols
+- [ ] **Protocol Analysis Tools**: AI-powered analysis and reporting of protocol data
+- [ ] **Hybrid Architecture**: Support both direct A2A agents and MCP-enabled AI assistants
