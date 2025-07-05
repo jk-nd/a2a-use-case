@@ -123,6 +123,15 @@ else
     echo "⚠️  tests/get-token.js not found, skipping token generation"
 fi
 
+# Get technical user token for A2A server
+echo "🔑 Getting technical user token for A2A server..."
+if [ -f "scripts/get-technical-token.js" ]; then
+    node scripts/get-technical-token.js
+    echo "✅ Technical user token obtained and environment variable set!"
+else
+    echo "⚠️  scripts/get-technical-token.js not found, skipping technical token generation"
+fi
+
 cd "$PROJECT_ROOT"
 
 echo "🎉 Complete A2A stack build and deployment completed successfully!"

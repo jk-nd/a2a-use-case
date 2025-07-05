@@ -137,27 +137,11 @@ async function fetchEngineOpenAPI() {
 }
 
 /**
- * Direct package discovery by checking known packages
+ * Direct package discovery - no fallback packages
  */
 async function discoverPackagesDirect() {
-    const knownPackages = ['rfp_workflow', 'test_deploy'];
-    const availablePackages = [];
-    
-    for (const pkg of knownPackages) {
-        try {
-            console.log(`Checking if package ${pkg} is available...`);
-            const response = await fetchPackageOpenAPI(pkg);
-            if (response && response.paths) {
-                availablePackages.push(pkg);
-                console.log(`Package ${pkg} is available`);
-            }
-        } catch (error) {
-            console.log(`Package ${pkg} is not available:`, error.message);
-        }
-    }
-    
-    console.log(`Direct discovery found ${availablePackages.length} packages:`, availablePackages);
-    return availablePackages;
+    console.log('No fallback packages - only deployed packages will be used');
+    return [];
 }
 
 /**

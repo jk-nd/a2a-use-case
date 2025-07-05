@@ -151,6 +151,29 @@ cat > /tmp/realm-config.json << 'EOF'
         "api_endpoint": ["http://localhost:3003/api"],
         "permissions": ["automated_proposal_generation", "delivery_tracking", "invoice_processing"]
       }
+    },
+    {
+      "username": "a2a-technical-user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "a2a-technical@noumena.local",
+      "firstName": "A2A",
+      "lastName": "Technical",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "a2a-technical-password-123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "role": ["technical_user"],
+        "organization": ["noumena"],
+        "department": ["platform"],
+        "permissions": ["admin_access", "protocol_discovery", "system_management"],
+        "user_type": ["technical"],
+        "service": ["a2a_server"]
+      }
     }
   ],
   "clients": [

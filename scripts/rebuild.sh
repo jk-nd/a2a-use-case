@@ -158,11 +158,21 @@ else
     echo "⚠️  tests/get-token.js not found, skipping token generation"
 fi
 
+# Step 15: Get technical user token for A2A server
+echo ""
+echo "🔑 Step 15: Getting technical user token for A2A server..."
+if [ -f "scripts/get-technical-token.js" ]; then
+    node scripts/get-technical-token.js
+    echo "✅ Technical user token obtained and environment variable set!"
+else
+    echo "⚠️  scripts/get-technical-token.js not found, skipping technical token generation"
+fi
+
 cd "$PROJECT_ROOT"
 
-# Step 15: Final verification
+# Step 16: Final verification
 echo ""
-echo "🔍 Step 15: Final verification..."
+echo "🔍 Step 16: Final verification..."
 echo "   Checking A2A server process..."
 if docker exec a2a-a2a-server-1 ps aux | grep -q "ts-node src/server.ts"; then
     echo "✅ A2A server running TypeScript directly"

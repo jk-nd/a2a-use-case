@@ -67,16 +67,16 @@ export function generateMethodHandlers(openAPISpec: any, packageName: string): M
                 const operationId = op.operationId;
                 
                 if (operationId) {
-                    // Create a self-contained handler function that captures all needed values
-                    const createHandler = (capturedPath: string, capturedHttpMethod: string) => {
-                        return async (params: any) => {
+                    // Create a self-contained handler function with embedded path and method
+                    const handlerCode = `
+                        async (params) => {
                             const { token, ...requestParams } = params;
                             
                             // Build request URL
-                            let requestPath = capturedPath;
+                            let requestPath = '${path}';
                             
                             // Replace path parameters with values from params
-                            const pathParams = capturedPath.match(/\{([^}]+)\}/g);
+                            const pathParams = requestPath.match(/\\{([^}]+)\\}/g);
                             if (pathParams) {
                                 for (const param of pathParams) {
                                     const paramName = param.slice(1, -1);
@@ -88,36 +88,36 @@ export function generateMethodHandlers(openAPISpec: any, packageName: string): M
                             }
                             
                             // Prepare request options
-                            const requestOptions: any = {
-                                method: capturedHttpMethod.toUpperCase(),
+                            const requestOptions = {
+                                method: '${httpMethod.toUpperCase()}',
                                 headers: {
-                                    'Authorization': `Bearer ${token}`,
+                                    'Authorization': \`Bearer \${token}\`,
                                     'Content-Type': 'application/json',
                                     'Accept': 'application/json'
                                 }
                             };
                             
                             // Add body for POST/PUT requests
-                            if (capturedHttpMethod === 'post' || capturedHttpMethod === 'put') {
+                            if ('${httpMethod}' === 'post' || '${httpMethod}' === 'put') {
                                 requestOptions.body = JSON.stringify(requestParams);
                             }
                             
                             // Add query parameters for GET requests
-                            if (capturedHttpMethod === 'get') {
+                            if ('${httpMethod}' === 'get') {
                                 const queryParams = new URLSearchParams();
                                 for (const [key, value] of Object.entries(requestParams)) {
-                                    if (value !== undefined && !capturedPath.includes(`{${key}}`)) {
+                                    if (value !== undefined && !requestPath.includes(\`{\${key}}\`)) {
                                         queryParams.append(key, String(value));
                                     }
                                 }
                                 if (queryParams.toString()) {
-                                    requestPath += `?${queryParams.toString()}`;
+                                    requestPath += \`?\${queryParams.toString()}\`;
                                 }
                             }
                             
                             // Make request to NPL engine
                             const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
-                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            const response = await fetch(\`\${NPL_ENGINE_URL}\${requestPath}\`, requestOptions);
                             
                             // Get response text first to handle empty responses
                             const responseText = await response.text();
@@ -137,19 +137,20 @@ export function generateMethodHandlers(openAPISpec: any, packageName: string): M
                             if (!response.ok) {
                                 // If we have JSON error data, use it
                                 if (responseData && typeof responseData === 'object' && 'error' in responseData) {
-                                    throw new Error(`NPL engine error: ${(responseData as any).error}`);
+                                    throw new Error(\`NPL engine error: \${responseData.error}\`);
                                 } else if (responseData && typeof responseData === 'string') {
-                                    throw new Error(`NPL engine error: ${responseData}`);
+                                    throw new Error(\`NPL engine error: \${responseData}\`);
                                 } else {
-                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                    throw new Error(\`NPL engine error: \${response.status} \${response.statusText}\`);
                                 }
                             }
                             
                             return responseData;
-                        };
-                    };
+                        }
+                    `;
                     
-                    handlers[operationId] = createHandler(path, httpMethod);
+                    // Create the handler function from the code string
+                    handlers[operationId] = eval(handlerCode);
                 }
             }
         }

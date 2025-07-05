@@ -110,6 +110,7 @@ services:
       KEYCLOAK_REALM: noumena
       KEYCLOAK_CLIENT_ID: noumena
       NPL_TOKEN: ${NPL_TOKEN:-}
+      NPL_TECHNICAL_USER_TOKEN: ${NPL_TECHNICAL_USER_TOKEN:-}
     ports:
       - "8000:8000"
     depends_on:

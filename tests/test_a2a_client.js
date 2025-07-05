@@ -12,14 +12,12 @@ async function testA2AServer() {
     console.log('✅ Health check passed:', healthResponse.data);
     console.log('');
 
-    // Test agent card endpoint
-    console.log('2. Testing agent card endpoint...');
-    const agentCardResponse = await axios.get(`${A2A_SERVER_URL}/a2a/agent-card`);
-    console.log('✅ Agent card retrieved:', {
-      name: agentCardResponse.data.name,
-      description: agentCardResponse.data.description,
-      version: agentCardResponse.data.version,
-      skills: agentCardResponse.data.skills.map(s => s.name)
+    // Test skills endpoint
+    console.log('2. Testing skills endpoint...');
+    const skillsResponse = await axios.get(`${A2A_SERVER_URL}/a2a/skills`);
+    console.log('✅ Skills retrieved:', {
+      skills: skillsResponse.data.skills.map(s => `${s.package}.${s.protocol}`),
+      totalSkills: skillsResponse.data.skills.length
     });
     console.log('');
 
@@ -58,8 +56,10 @@ async function testA2AServer() {
     console.log('\n🎉 A2A Server test completed successfully!');
     console.log('\nAvailable endpoints:');
     console.log(`- Health: ${A2A_SERVER_URL}/health`);
-    console.log(`- Agent Card: ${A2A_SERVER_URL}/a2a/agent-card`);
-    console.log(`- A2A Request: ${A2A_SERVER_URL}/a2a/request`);
+    console.log(`- Skills: ${A2A_SERVER_URL}/a2a/skills`);
+    console.log(`- Protocols: ${A2A_SERVER_URL}/a2a/protocols`);
+    console.log(`- Deploy: ${A2A_SERVER_URL}/a2a/deploy`);
+    console.log(`- Instantiate: ${A2A_SERVER_URL}/a2a/instantiate`);
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);

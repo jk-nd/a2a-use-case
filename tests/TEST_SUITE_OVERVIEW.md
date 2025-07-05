@@ -87,23 +87,26 @@ The test suite validates the complete A2A (Agent2Agent) system with NPL (NOUMENA
 
 ### **Phase 4: End-to-End Workflow Tests**
 
-#### `test_rfp_deployment_and_workflow.js`
-**Purpose**: Complete RFP workflow validation
+#### `test_payment_workflow_deployment_and_workflow.js`
+**Purpose**: Complete payment workflow validation with runtime deployment
 **Tests**:
-- ✅ RFP protocol deployment
-- ✅ Protocol instantiation with parties
-- ✅ State transitions (draft → pendingApproval → approved → active)
-- ✅ Cross-agent communication
-- ✅ Policy enforcement
-- ✅ Error handling
+- ✅ Payment workflow protocol deployment at runtime
+- ✅ Order commitment protocol instantiation with parties
+- ✅ State transitions (created → committed → delivered → paid → completed)
+- ✅ Cross-agent communication (order agent ↔ supplier agent)
+- ✅ Policy enforcement and commitment validation
+- ✅ Error handling and validation
 - ✅ Audit trail validation
+- ✅ Query methods and status checking
 
 **Functionality Verified**:
+- Runtime protocol deployment works
 - Complete business workflow works
 - State transitions are enforced
 - Policy rules are applied
 - Cross-agent collaboration works
 - Full audit trail is maintained
+- Query methods provide real-time status
 
 ---
 
@@ -151,7 +154,7 @@ node deploy-test-protocol.js
 node deploy-auto-discovery.js
 
 # End-to-end workflow
-node test_rfp_deployment_and_workflow.js
+node test_payment_workflow_deployment_and_workflow.js
 
 # Multi-party security
 node test-protocol-instantiation.js
@@ -173,12 +176,12 @@ node test-protocol-instantiation.js
 | **Dynamic Protocol Deployment** | `deploy-test-protocol.js` | ✅ Complete |
 | **Real-time Method Generation** | `deploy-auto-discovery.js` | ✅ Complete |
 | **Multi-IdP Authentication** | All tests | ✅ Complete |
-| **Policy Enforcement** | `test_rfp_deployment_and_workflow.js` | ✅ Complete |
+| **Policy Enforcement** | `test_payment_workflow_deployment_and_workflow.js` | ✅ Complete |
 | **Cross-agent Communication** | `test_a2a_discovery.js` | ✅ Complete |
 | **Protocol Discovery** | `test_a2a_discovery.js` | ✅ Complete |
 | **Multi-party Security** | `test-protocol-instantiation.js` | ✅ Complete |
 | **Error Handling** | All tests | ✅ Complete |
-| **Audit Trail** | `test_rfp_deployment_and_workflow.js` | ✅ Complete |
+| **Audit Trail** | `test_payment_workflow_deployment_and_workflow.js` | ✅ Complete |
 
 ---
 
@@ -191,13 +194,13 @@ node test-protocol-instantiation.js
 - `KEYCLOAK_REALM` - Keycloak realm (default: noumena)
 
 ### **Test Users**
-- `buyer` / `password123` - Procurement agent
-- `finance_manager` / `password123` - Finance agent
+- `buyer` / `password123` - Order agent
+- `finance_manager` / `password123` - Supplier agent
 - `procurement_agent` / `agent-password-123` - Agent user
 - `finance_agent` / `agent-password-123` - Agent user
 
 ### **Test Protocols**
-- `rfp_workflow.RfpWorkflow` - Main RFP workflow
+- `payment_workflow.OrderCommitment` - Main payment workflow (deployed at runtime)
 - `test_deploy.TestProtocol` - Dynamic deployment test
 - `auto_discovery.AutoTest` - Auto-discovery test
 

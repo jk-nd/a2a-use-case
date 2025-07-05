@@ -1,0 +1,358 @@
+package payment_workflow
+
+/**
+ * Test the OrderCommitment protocol initialization and basic functionality
+ * @param test The test context
+ */
+@test
+function test_protocol_initialization(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 10,
+        price = 25.50,
+        deliveryDate = now().plus(days(7))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    test.assertEquals("pending", orderCommitment.getStatus['orderAgent'](), "Initial state should be pending");
+    test.assertEquals(false, orderCommitment.isOrderAgentCommitted['orderAgent'](), "Order agent should not be committed initially");
+    test.assertEquals(false, orderCommitment.isSupplierAgentCommitted['orderAgent'](), "Supplier agent should not be committed initially");
+    test.assertEquals(255.0, orderCommitment.getTotalAmount['orderAgent'](), "Total amount should be quantity * price");
+};
+
+/**
+ * Test that both parties can commit and protocol moves to committed state
+ * @param test The test context
+ */
+@test
+function test_both_parties_commit(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 5,
+        price = 100.0,
+        deliveryDate = now().plus(days(14))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Order agent commits first
+    orderCommitment.commitToPay['orderAgent']();
+    test.assertEquals("pending", orderCommitment.getStatus['orderAgent'](), "Should still be pending after order agent commits");
+    test.assertEquals(true, orderCommitment.isOrderAgentCommitted['orderAgent'](), "Order agent should be committed");
+    
+    // Supplier agent commits
+    orderCommitment.commitToDeliver['supplierAgent']();
+    test.assertEquals("committed", orderCommitment.getStatus['orderAgent'](), "Should be committed after both parties commit");
+    test.assertEquals(true, orderCommitment.isSupplierAgentCommitted['orderAgent'](), "Supplier agent should be committed");
+};
+
+/**
+ * Test that supplier can mark delivery and protocol moves to delivered state
+ * @param test The test context
+ */
+@test
+function test_mark_delivered(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 3,
+        price = 50.0,
+        deliveryDate = now().plus(days(10))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Both parties commit
+    orderCommitment.commitToPay['orderAgent']();
+    orderCommitment.commitToDeliver['supplierAgent']();
+    
+    // Mark as delivered
+    var deliveryDate = now();
+    orderCommitment.markDelivered['supplierAgent'](deliveryDate);
+    
+    test.assertEquals("delivered", orderCommitment.getStatus['orderAgent'](), "Should be delivered after marking delivery");
+};
+
+/**
+ * Test that order agent can pay and protocol moves to paid state
+ * @param test The test context
+ */
+@test
+function test_payment(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 2,
+        price = 75.0,
+        deliveryDate = now().plus(days(5))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Both parties commit
+    orderCommitment.commitToPay['orderAgent']();
+    orderCommitment.commitToDeliver['supplierAgent']();
+    
+    // Mark as delivered
+    orderCommitment.markDelivered['supplierAgent'](now());
+    
+    // Pay the amount
+    orderCommitment.pay['orderAgent'](150.0); // 2 * 75.0
+    
+    test.assertEquals("paid", orderCommitment.getStatus['orderAgent'](), "Should be paid after payment");
+};
+
+/**
+ * Test that order can be completed after payment
+ * @param test The test context
+ */
+@test
+function test_complete_order(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 1,
+        price = 200.0,
+        deliveryDate = now().plus(days(3))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Complete workflow
+    orderCommitment.commitToPay['orderAgent']();
+    orderCommitment.commitToDeliver['supplierAgent']();
+    orderCommitment.markDelivered['supplierAgent'](now());
+    orderCommitment.pay['orderAgent'](200.0);
+    
+    // Complete the order
+    orderCommitment.complete['orderAgent']();
+    
+    test.assertEquals("completed", orderCommitment.getStatus['orderAgent'](), "Should be completed after completion");
+};
+
+/**
+ * Test that order can be cancelled while pending
+ * @param test The test context
+ */
+@test
+function test_cancel_while_pending(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 4,
+        price = 25.0,
+        deliveryDate = now().plus(days(7))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Cancel the order
+    orderCommitment.cancel['orderAgent']("Changed requirements");
+    
+    test.assertEquals("cancelled", orderCommitment.getStatus['orderAgent'](), "Should be cancelled");
+};
+
+/**
+ * Test that order can be cancelled while committed
+ * @param test The test context
+ */
+@test
+function test_cancel_while_committed(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 6,
+        price = 30.0,
+        deliveryDate = now().plus(days(10))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Both parties commit
+    orderCommitment.commitToPay['orderAgent']();
+    orderCommitment.commitToDeliver['supplierAgent']();
+    
+    // Cancel the order
+    orderCommitment.cancel['supplierAgent']("Production issues");
+    
+    test.assertEquals("cancelled", orderCommitment.getStatus['orderAgent'](), "Should be cancelled");
+};
+
+/**
+ * Test that order agent cannot commit twice
+ * @param test The test context
+ */
+@test
+function test_order_agent_cannot_commit_twice(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 1,
+        price = 100.0,
+        deliveryDate = now().plus(days(5))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // First commitment should succeed
+    orderCommitment.commitToPay['orderAgent']();
+    
+    // Second commitment should fail
+    test.assertFails(function() -> orderCommitment.commitToPay['orderAgent'](), "Order agent should not be able to commit twice");
+};
+
+/**
+ * Test that supplier agent cannot commit twice
+ * @param test The test context
+ */
+@test
+function test_supplier_agent_cannot_commit_twice(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 1,
+        price = 100.0,
+        deliveryDate = now().plus(days(5))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // First commitment should succeed
+    orderCommitment.commitToDeliver['supplierAgent']();
+    
+    // Second commitment should fail
+    test.assertFails(function() -> orderCommitment.commitToDeliver['supplierAgent'](), "Supplier agent should not be able to commit twice");
+};
+
+/**
+ * Test that payment amount must match total amount
+ * @param test The test context
+ */
+@test
+function test_payment_amount_must_match_total(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 3,
+        price = 50.0,
+        deliveryDate = now().plus(days(7))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Complete workflow up to payment
+    orderCommitment.commitToPay['orderAgent']();
+    orderCommitment.commitToDeliver['supplierAgent']();
+    orderCommitment.markDelivered['supplierAgent'](now());
+    
+    // Try to pay wrong amount
+    test.assertFails(function() -> orderCommitment.pay['orderAgent'](200.0), "Payment amount must match total amount");
+};
+
+/**
+ * Test that cancellation reason cannot be empty
+ * @param test The test context
+ */
+@test
+function test_cancellation_reason_required(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 1,
+        price = 100.0,
+        deliveryDate = now().plus(days(5))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Try to cancel with empty reason
+    test.assertFails(function() -> orderCommitment.cancel['orderAgent'](""), "Cancellation reason cannot be empty");
+};
+
+/**
+ * Test that delivery date must be reasonable
+ * @param test The test context
+ */
+@test
+function test_delivery_date_validation(test: Test) -> {
+    var productSpec = ProductSpec(
+        name = "Test Product",
+        description = "A test product for testing",
+        sku = "TEST-001"
+    );
+    
+    var orderDetails = OrderDetails(
+        productSpec = productSpec,
+        quantity = 1,
+        price = 100.0,
+        deliveryDate = now().plus(days(5))
+    );
+    
+    var orderCommitment = OrderCommitment['orderAgent', 'supplierAgent'](orderDetails);
+    
+    // Complete workflow up to delivery
+    orderCommitment.commitToPay['orderAgent']();
+    orderCommitment.commitToDeliver['supplierAgent']();
+    
+    // Try to mark delivered with date too far in the past
+    var pastDate = now().minus(days(2));
+    test.assertFails(function() -> orderCommitment.markDelivered['supplierAgent'](pastDate), "Delivery date cannot be too far in the past");
+}; 

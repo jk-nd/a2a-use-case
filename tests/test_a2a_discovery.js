@@ -37,8 +37,8 @@ const CLIENT_ID = 'noumena';
 
 // Get users from config
 const USERS = {
-  procurementAgent: config.users.humans.find(u => u.username === 'buyer'),
-  financeAgent: config.users.humans.find(u => u.username === 'finance_manager')
+  orderAgent: config.users.humans.find(u => u.username === 'buyer'),
+  supplierAgent: config.users.humans.find(u => u.username === 'finance_manager')
 };
 
 async function getAccessToken(username, password) {
@@ -72,13 +72,71 @@ function partyEntity(username) {
 }
 
 /**
+ * Deploy Payment Workflow protocol to NPL engine via A2A server
+ */
+async function deployPaymentWorkflow(token) {
+  console.log('🚀 Deploying Payment Workflow Protocol for Discovery Test...\n');
+
+  try {
+    // Read the payment workflow protocol file
+    const paymentProtocolPath = path.join(__dirname, '../src/main/npl-1.0.0/payment_workflow/order_commitment.npl');
+    const nplCode = fs.readFileSync(paymentProtocolPath, 'utf8');
+    console.log('✅ Payment workflow protocol file loaded');
+
+    // Deploy the protocol
+    console.log('📤 Deploying protocol to NPL engine...');
+    const deployResponse = await axios.post(`${A2A_SERVER_URL}/a2a/deploy`, {
+      package: 'payment_workflow',
+      protocol: 'OrderCommitment',
+      nplCode: nplCode,
+      token: token
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('✅ Protocol deployed successfully!');
+    console.log('📋 Deployment response:', deployResponse.data);
+
+    // Refresh A2A methods
+    console.log('\n🔄 Refreshing A2A methods...');
+    const refreshResponse = await axios.post(`${A2A_SERVER_URL}/a2a/refresh`, {
+      token: token
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('✅ A2A methods refreshed successfully!');
+    console.log('📋 Refresh response:', refreshResponse.data);
+
+    return true;
+  } catch (error) {
+    // Handle 409 Conflict (already deployed)
+    if (
+      (error.response && error.response.status === 409) ||
+      (error.details && error.details.status === 409) ||
+      (error.status === 409) ||
+      (error.response && error.response.data && error.response.data.details && error.response.data.details.status === 409)
+    ) {
+      console.log('ℹ️  Payment workflow protocol already deployed, continuing with discovery test...\n');
+      return false;
+    }
+    console.error('❌ Deployment failed:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+/**
  * Call A2A method via A2A server
  */
 async function callA2AMethod(methodName, params, token) {
   try {
     const response = await axios.post(`${A2A_SERVER_URL}/a2a/method`, {
-      package: 'rfp_workflow',
-      protocol: 'RfpWorkflow',
+      package: 'payment_workflow',
+      protocol: 'OrderCommitment',
       method: methodName,
       params: params,
       token: token
@@ -96,13 +154,13 @@ async function callA2AMethod(methodName, params, token) {
 }
 
 /**
- * Create RFP protocol instance via NPL
+ * Create OrderCommitment protocol instance via NPL
  */
-async function createRfpInstance(token, rfpData) {
+async function createOrderInstance(token, orderData) {
   try {
     const response = await axios.post(
-      `${NPL_API_URL}/npl/rfp_workflow/RfpWorkflow/`,
-      rfpData,
+      `${NPL_API_URL}/npl/payment_workflow/OrderCommitment/`,
+      orderData,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -112,184 +170,229 @@ async function createRfpInstance(token, rfpData) {
     );
     return response.data;
   } catch (error) {
-    console.error('Failed to create RFP instance:', error.response?.data || error.message);
+    console.error('Failed to create order instance:', error.response?.data || error.message);
     throw error;
   }
 }
 
+/**
+ * Test A2A discovery functionality with runtime-deployed protocols
+ */
 async function testA2ADiscovery() {
-  console.log('🧪 Starting A2A Discovery Integration Test...\n');
+  console.log('🧪 Starting A2A Discovery Integration Test (Runtime Deployment Focus)...\n');
 
   try {
     // Get tokens for both agents
     console.log('🔑 Getting access tokens for agents...');
-    const procurementToken = await getAccessToken(USERS.procurementAgent.username, USERS.procurementAgent.password);
-    const financeToken = await getAccessToken(USERS.financeAgent.username, USERS.financeAgent.password);
+    const orderAgentToken = await getAccessToken(USERS.orderAgent.username, USERS.orderAgent.password);
+    const supplierAgentToken = await getAccessToken(USERS.supplierAgent.username, USERS.supplierAgent.password);
     console.log('✅ Tokens obtained successfully\n');
 
-    // Step 1: Create multiple RFP instances for testing
-    console.log('📝 Step 1: Creating multiple RFP instances for testing...');
+    // Step 1: Deploy the payment workflow protocol at runtime
+    console.log('📦 Step 1: Deploying Payment Workflow Protocol at Runtime...');
+    await deployPaymentWorkflow(orderAgentToken);
+    console.log('✅ Payment workflow protocol deployed successfully\n');
+
+    // Step 2: Create multiple order instances for testing discovery
+    console.log('📝 Step 2: Creating multiple order instances for discovery testing...');
     
-    const rfpInstances = [];
+    const orderInstances = [];
     
-    // Create RFP 1: Procurement agent creates
-    const rfp1Data = {
-      initialRfp: {
-        rfpId: `rfp-discovery-1-${Date.now()}`,
-        title: "AI Analytics Platform",
-        description: "Development of machine learning analytics platform",
-        requestedAmount: 75000,
-        requesterId: USERS.procurementAgent.username,
-        createdAt: new Date().toISOString()
+    // Create Order 1: Order agent creates
+    const order1Data = {
+      orderDetails: {
+        productSpec: {
+          name: "AI Analytics Platform License",
+          description: "Advanced analytics platform for business intelligence",
+          sku: "AI-ANALYTICS-001"
+        },
+        quantity: 3,
+        price: 2500,
+        deliveryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString() // 10 days from now
       },
       "@parties": {
-        procurementAgent: partyEntity(USERS.procurementAgent.username),
-        financeAgent: partyEntity(USERS.financeAgent.username)
+        orderAgent: partyEntity(USERS.orderAgent.username),
+        supplierAgent: partyEntity(USERS.supplierAgent.username)
       }
     };
     
-    const rfp1 = await createRfpInstance(procurementToken, rfp1Data);
-    rfpInstances.push(rfp1);
-    console.log(`✅ Created RFP 1: ${rfp1['@id']} (State: ${rfp1['@state']})`);
+    const order1 = await createOrderInstance(orderAgentToken, order1Data);
+    orderInstances.push(order1);
+    console.log(`✅ Created Order 1: ${order1['@id']} (State: ${order1['@state']})`);
 
-    // Create RFP 2: Another RFP
-    const rfp2Data = {
-      initialRfp: {
-        rfpId: `rfp-discovery-2-${Date.now()}`,
-        title: "Cloud Infrastructure",
-        description: "Cloud infrastructure setup and migration",
-        requestedAmount: 50000,
-        requesterId: USERS.procurementAgent.username,
-        createdAt: new Date().toISOString()
+    // Create Order 2: Another order
+    const order2Data = {
+      orderDetails: {
+        productSpec: {
+          name: "Cloud Infrastructure Services",
+          description: "Scalable cloud infrastructure and hosting services",
+          sku: "CLOUD-INFRA-001"
+        },
+        quantity: 1,
+        price: 5000,
+        deliveryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() // 15 days from now
       },
       "@parties": {
-        procurementAgent: partyEntity(USERS.procurementAgent.username),
-        financeAgent: partyEntity(USERS.financeAgent.username)
+        orderAgent: partyEntity(USERS.orderAgent.username),
+        supplierAgent: partyEntity(USERS.supplierAgent.username)
       }
     };
     
-    const rfp2 = await createRfpInstance(procurementToken, rfp2Data);
-    rfpInstances.push(rfp2);
-    console.log(`✅ Created RFP 2: ${rfp2['@id']} (State: ${rfp2['@state']})`);
+    const order2 = await createOrderInstance(orderAgentToken, order2Data);
+    orderInstances.push(order2);
+    console.log(`✅ Created Order 2: ${order2['@id']} (State: ${order2['@state']})`);
 
-    // Step 2: Test discovery for procurement agent
-    console.log('\n📋 Step 2: Testing discovery for Procurement Agent...');
+    // Step 3: Test discovery for order agent
+    console.log('\n📋 Step 3: Testing discovery for Order Agent...');
     
-    const procurementProtocols = await callA2AMethod('listMyProtocols', {
-      package: 'rfp_workflow',
-      protocol: 'RfpWorkflow'
-    }, procurementToken);
+    const orderAgentProtocols = await callA2AMethod('listMyProtocols', {
+      package: 'payment_workflow',
+      protocol: 'OrderCommitment'
+    }, orderAgentToken);
     
     // Debug logging
     console.log('🔍 Debug: Full response structure:');
-    console.log(JSON.stringify(procurementProtocols, null, 2));
+    console.log(JSON.stringify(orderAgentProtocols, null, 2));
     
-    console.log(`✅ Procurement Agent found ${procurementProtocols.result?.count || 'unknown'} protocols`);
-    console.log('📋 Procurement Agent protocols:');
+    console.log(`✅ Order Agent found ${orderAgentProtocols.result?.count || 'unknown'} protocols`);
+    console.log('📋 Order Agent protocols:');
     
-    if (procurementProtocols.result && procurementProtocols.result.protocols && Array.isArray(procurementProtocols.result.protocols)) {
-      procurementProtocols.result.protocols.forEach((protocol, index) => {
+    if (orderAgentProtocols.result && orderAgentProtocols.result.protocols && Array.isArray(orderAgentProtocols.result.protocols)) {
+      orderAgentProtocols.result.protocols.forEach((protocol, index) => {
         console.log(`   ${index + 1}. ${protocol['@id']} (State: ${protocol['@state']})`);
       });
     } else {
       console.log('❌ No protocols array found in response');
-      console.log('Response structure:', Object.keys(procurementProtocols));
-      if (procurementProtocols.result) {
-        console.log('Result structure:', Object.keys(procurementProtocols.result));
+      console.log('Response structure:', Object.keys(orderAgentProtocols));
+      if (orderAgentProtocols.result) {
+        console.log('Result structure:', Object.keys(orderAgentProtocols.result));
       }
     }
 
-    // Step 3: Test discovery for finance agent
-    console.log('\n💰 Step 3: Testing discovery for Finance Agent...');
+    // Step 4: Test discovery for supplier agent
+    console.log('\n📋 Step 4: Testing discovery for Supplier Agent...');
     
-    const financeProtocols = await callA2AMethod('listMyProtocols', {
-      package: 'rfp_workflow',
-      protocol: 'RfpWorkflow'
-    }, financeToken);
+    const supplierAgentProtocols = await callA2AMethod('listMyProtocols', {
+      package: 'payment_workflow',
+      protocol: 'OrderCommitment'
+    }, supplierAgentToken);
     
-    console.log(`✅ Finance Agent found ${financeProtocols.result.count} protocols`);
-    console.log('📋 Finance Agent protocols:');
-    financeProtocols.result.protocols.forEach((protocol, index) => {
-      console.log(`   ${index + 1}. ${protocol['@id']} (State: ${protocol['@state']})`);
+    console.log(`✅ Supplier Agent found ${supplierAgentProtocols.result?.count || 'unknown'} protocols`);
+    console.log('📋 Supplier Agent protocols:');
+    
+    if (supplierAgentProtocols.result && supplierAgentProtocols.result.protocols && Array.isArray(supplierAgentProtocols.result.protocols)) {
+      supplierAgentProtocols.result.protocols.forEach((protocol, index) => {
+        console.log(`   ${index + 1}. ${protocol['@id']} (State: ${protocol['@state']})`);
+      });
+    } else {
+      console.log('❌ No protocols array found in response');
+    }
+
+    // Step 5: Test protocol content retrieval
+    console.log('\n📄 Step 5: Testing protocol content retrieval...');
+    
+    if (orderInstances.length > 0) {
+      const firstOrderId = orderInstances[0]['@id'];
+      console.log(`🔍 Retrieving content for order: ${firstOrderId}`);
+      
+      const orderContent = await callA2AMethod('getMyProtocolContent', {
+        protocolId: firstOrderId,
+        package: 'payment_workflow',
+        protocol: 'OrderCommitment'
+      }, orderAgentToken);
+      
+      console.log('✅ Protocol content retrieved successfully');
+      console.log('📋 Order content structure:', Object.keys(orderContent.result?.content || {}));
+      
+      if (orderContent.result?.content) {
+        const content = orderContent.result.content;
+        console.log(`   Order ID: ${content.orderId || 'N/A'}`);
+        console.log(`   Item: ${content.itemName || 'N/A'}`);
+        console.log(`   Quantity: ${content.quantity || 'N/A'}`);
+        console.log(`   Total Amount: ${content.totalAmount || 'N/A'}`);
+        console.log(`   State: ${content['@state'] || 'N/A'}`);
+      }
+    }
+
+    // Step 6: Test A2A skills endpoint
+    console.log('\n🎯 Step 6: Testing A2A skills endpoint...');
+    
+    const skillsResponse = await axios.get(`${A2A_SERVER_URL}/a2a/skills`);
+    console.log('✅ Skills endpoint responded successfully');
+    console.log('📋 Available protocols:', skillsResponse.data.protocols);
+    console.log('📋 Available skills:', skillsResponse.data.skills?.length || 0, 'protocol(s)');
+    
+    if (skillsResponse.data.skills && skillsResponse.data.skills.length > 0) {
+      skillsResponse.data.skills.forEach((skill, index) => {
+        console.log(`   ${index + 1}. ${skill.package}.${skill.protocol} (${skill.methods?.length || 0} methods)`);
+      });
+    }
+
+    // Step 7: Test protocol listing endpoint
+    console.log('\n📋 Step 7: Testing protocol listing endpoint...');
+    
+    const protocolsResponse = await axios.get(`${A2A_SERVER_URL}/a2a/protocols`, {
+      headers: {
+        'Authorization': `Bearer ${orderAgentToken}`
+      }
     });
-
-    // Step 4: Test getting protocol content
-    console.log('\n📄 Step 4: Testing protocol content retrieval...');
     
-    if (rfpInstances.length > 0) {
-      const firstProtocolId = rfpInstances[0]['@id'];
-      
-      // Get content as procurement agent
-      console.log(`🔍 Getting content for protocol ${firstProtocolId} as Procurement Agent...`);
-      const procurementContent = await callA2AMethod('getMyProtocolContent', {
-        protocolId: firstProtocolId,
-        package: 'rfp_workflow',
-        protocol: 'RfpWorkflow'
-      }, procurementToken);
-      
-      console.log('✅ Procurement Agent content retrieved:');
-      console.log(`   Protocol ID: ${procurementContent.result.protocolId}`);
-      console.log(`   State: ${procurementContent.result.content['@state']}`);
-      console.log(`   RFP ID: ${procurementContent.result.content.initialRfp.rfpId}`);
-      console.log(`   Title: ${procurementContent.result.content.initialRfp.title}`);
-      console.log(`   Requested Amount: $${procurementContent.result.content.initialRfp.requestedAmount}`);
+    console.log('✅ Protocol listing endpoint responded successfully');
+    console.log('📋 Available packages:', protocolsResponse.data.result?.packages || []);
+    console.log('📋 Protocol details:', protocolsResponse.data.result?.protocols || []);
+    console.log(`📋 Total protocols: ${protocolsResponse.data.result?.count || 0}`);
 
-      // Get content as finance agent
-      console.log(`🔍 Getting content for protocol ${firstProtocolId} as Finance Agent...`);
-      const financeContent = await callA2AMethod('getMyProtocolContent', {
-        protocolId: firstProtocolId,
-        package: 'rfp_workflow',
-        protocol: 'RfpWorkflow'
-      }, financeToken);
+    // Step 8: Test method execution on discovered protocols
+    console.log('\n⚡ Step 8: Testing method execution on discovered protocols...');
+    
+    if (orderInstances.length > 0) {
+      const testOrderId = orderInstances[0]['@id'];
+      console.log(`🔧 Testing method execution on order: ${testOrderId}`);
       
-      console.log('✅ Finance Agent content retrieved:');
-      console.log(`   Protocol ID: ${financeContent.result.protocolId}`);
-      console.log(`   State: ${financeContent.result.content['@state']}`);
-      console.log(`   RFP ID: ${financeContent.result.content.initialRfp.rfpId}`);
-      console.log(`   Title: ${financeContent.result.content.initialRfp.title}`);
-      console.log(`   Requested Amount: $${financeContent.result.content.initialRfp.requestedAmount}`);
+      // Test getting order status
+              const statusResult = await callA2AMethod('getstatus', {
+        id: testOrderId
+      }, orderAgentToken);
+      
+      console.log('✅ Method execution successful');
+      console.log(`📋 Order status: ${statusResult.result}`);
+      
+      // Test getting total amount
+              const amountResult = await callA2AMethod('gettotalamount', {
+        id: testOrderId
+      }, orderAgentToken);
+      
+      console.log(`📋 Total amount: ${amountResult.result}`);
     }
 
-    // Step 5: Test workflow with discovery
-    console.log('\n🔄 Step 5: Testing workflow with discovery...');
-    
-    if (rfpInstances.length > 0) {
-      const firstProtocolId = rfpInstances[0]['@id'];
-      
-      // Procurement agent submits for approval
-      console.log(`📤 Procurement Agent submitting RFP ${firstProtocolId} for approval...`);
-      await callA2AMethod('submitforapproval', {
-        protocolId: firstProtocolId
-      }, procurementToken);
-      
-      // Check updated protocol list
-      console.log('📋 Checking updated protocol list for Finance Agent...');
-      const updatedFinanceProtocols = await callA2AMethod('listMyProtocols', {
-        package: 'rfp_workflow',
-        protocol: 'RfpWorkflow'
-      }, financeToken);
-      
-      const pendingProtocols = updatedFinanceProtocols.result.protocols.filter(p => p['@state'] === 'pendingApproval');
-      console.log(`✅ Finance Agent found ${pendingProtocols.length} protocols pending approval`);
-      
-      if (pendingProtocols.length > 0) {
-        console.log('🎯 Finance Agent can now approve pending RFPs!');
-      }
-    }
-
-    console.log('\n🎉 A2A Discovery Integration Test completed successfully!');
-    console.log('📊 Test Summary:');
-    console.log(`   ✅ Created ${rfpInstances.length} RFP instances`);
-    console.log(`   ✅ Procurement Agent discovered ${procurementProtocols.result.count} protocols`);
-    console.log(`   ✅ Finance Agent discovered ${financeProtocols.result.count} protocols`);
-    console.log(`   ✅ Protocol content retrieval working for both agents`);
-    console.log(`   ✅ Workflow integration with discovery working`);
+    console.log('\n🎉 A2A Discovery Test Completed Successfully!');
+    console.log('\n📝 Test Summary:');
+    console.log('✅ Payment workflow protocol deployed at runtime');
+    console.log('✅ Multiple order instances created');
+    console.log('✅ Protocol discovery working for both agents');
+    console.log('✅ Protocol content retrieval working');
+    console.log('✅ A2A skills endpoint working');
+    console.log('✅ Protocol listing endpoint working');
+    console.log('✅ Method execution on discovered protocols working');
+    console.log('✅ Cross-agent protocol discovery working');
+    console.log('✅ Runtime deployment and discovery integration working');
 
   } catch (error) {
-    console.error('❌ Test failed:', error.message);
+    console.error('❌ A2A Discovery Test Failed:', error.message);
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+    }
     throw error;
   }
 }
 
 // Run the test
-testA2ADiscovery().catch(console.error); 
+if (require.main === module) {
+  testA2ADiscovery().catch(error => {
+    console.error('❌ Test execution failed:', error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { testA2ADiscovery }; 

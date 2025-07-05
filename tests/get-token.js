@@ -111,6 +111,13 @@ function loadConfig() {
                     firstName: 'Supplier',
                     lastName: 'Agent',
                     password: 'agent-password-123'
+                },
+                {
+                    username: 'a2a-technical-user',
+                    email: 'a2a-technical@noumena.local',
+                    firstName: 'A2A',
+                    lastName: 'Technical',
+                    password: 'a2a-technical-password-123'
                 }
             ]
         }

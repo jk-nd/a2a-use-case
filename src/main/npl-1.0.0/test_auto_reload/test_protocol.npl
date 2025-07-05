@@ -1,0 +1,30 @@
+package test_auto_reload
+
+/**
+ * Simple test protocol to verify automatic agent skills reload
+ * @param testValue A test value to store
+ */
+@api
+protocol[party1, party2] TestProtocol(var testValue: Text) {
+    require(testValue.length() > 0, "Test value must not be empty");
+
+    initial state created;
+    final state completed;
+
+    /**
+     * Function to get the test value
+     * @return The test value
+     */
+    @api
+    permission[party1 | party2] getTestValue() returns Text | created {
+        return testValue;
+    };
+
+    /**
+     * Function to complete the test
+     */
+    @api
+    permission[party1] complete() | created {
+        become completed;
+    };
+} 

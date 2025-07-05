@@ -24,15 +24,32 @@ import { dynamicMethodManager } from './dynamic-method-manager';
 
 // Import generated agent skills (for /a2a/skills endpoint)
 let getProtocolSkills: any, getAllProtocols: any;
-try {
-    const agentSkillsModule = require('./agent-skills');
-    getProtocolSkills = agentSkillsModule.getProtocolSkills;
-    getAllProtocols = agentSkillsModule.getAllProtocols;
-} catch (error) {
-    console.log('Agent skills module not found, will be generated dynamically');
-    getProtocolSkills = () => [];
-    getAllProtocols = () => [];
+
+/**
+ * Reload the agent skills module to pick up changes
+ */
+function reloadAgentSkills() {
+    try {
+        // Clear the require cache for the agent-skills module
+        delete require.cache[require.resolve('./agent-skills')];
+        
+        // Reload the module
+        const agentSkillsModule = require('./agent-skills');
+        getProtocolSkills = agentSkillsModule.getProtocolSkills;
+        getAllProtocols = agentSkillsModule.getAllProtocols;
+        
+        console.log('✅ Agent skills module reloaded successfully');
+        return true;
+    } catch (error) {
+        console.log('Agent skills module not found, will be generated dynamically');
+        getProtocolSkills = () => [];
+        getAllProtocols = () => [];
+        return false;
+    }
 }
+
+// Initial load
+reloadAgentSkills();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -284,6 +301,9 @@ app.post('/a2a/method', async (req: Request, res: Response): Promise<void> => {
 // Get available protocols and methods
 app.get('/a2a/skills', (req: Request, res: Response) => {
     try {
+        // Reload agent skills to pick up any dynamic updates
+        reloadAgentSkills();
+        
         const nplProtocols = getAllProtocols();
         const nplSkills = nplProtocols.map((protocol: any) => getProtocolSkills(protocol.package, protocol.protocol));
 
@@ -371,8 +391,15 @@ app.post('/a2a/request', async (req: Request, res: Response) => {
  * This endpoint allows agents to deploy new workflows at runtime
  */
 app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
+    // Declare variables at function level so they're accessible in catch block
+    let pkg: string = '', protocol: string = '', token: string = '', nplCode: string = '';
+    
     try {
-        const { package: pkg, protocol, nplCode, token } = req.body;
+        const { package: pkgParam, protocol: protocolParam, nplCode: nplCodeParam, token: tokenParam } = req.body;
+        pkg = pkgParam;
+        protocol = protocolParam;
+        token = tokenParam;
+        nplCode = nplCodeParam;
 
         if (!pkg || !protocol || !nplCode || !token) {
             res.status(400).json({
@@ -424,6 +451,10 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
         const deployResult = deployResponse.data;
         console.log(`Protocol ${pkg}.${protocol} deployed successfully`);
 
+        // Add the package to the deployed packages list
+        dynamicMethodManager.addDeployedPackage(pkg);
+        console.log(`📦 Added package ${pkg} to deployed packages list`);
+
         // After successful deployment, refresh dynamic methods
         dynamicMethodManager.forceRefresh();
         console.log('🔄 DynamicMethodManager: Refreshed after protocol deployment');
@@ -453,6 +484,9 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
 
             // Force refresh of dynamic method manager
             dynamicMethodManager.forceRefresh();
+
+            // Reload agent skills to pick up the new protocol
+            reloadAgentSkills();
 
             res.json({
                 success: true,
@@ -502,6 +536,79 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
             console.error('Detailed error response:', JSON.stringify(errorDetails, null, 2));
         }
         
+        // Handle 409 Conflict as success (protocol already deployed)
+        if (error.response && error.response.status === 409) {
+            console.log(`Protocol ${pkg}.${protocol} already deployed, treating as success`);
+            
+            // Add the package to the deployed packages list even if it already exists
+            dynamicMethodManager.addDeployedPackage(pkg);
+            console.log(`📦 Added package ${pkg} to deployed packages list (already deployed)`);
+            
+            // Refresh dynamic methods
+            dynamicMethodManager.forceRefresh();
+            console.log('🔄 DynamicMethodManager: Refreshed after protocol deployment (already deployed)');
+            
+            // Regenerate A2A methods for the existing protocol
+            console.log('Regenerating A2A methods for existing protocol...');
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const execAsync = promisify(exec);
+
+            try {
+                // Run the generator script to create new method handlers
+                const { stdout, stderr } = await execAsync('node generate-a2a-methods.js', {
+                    cwd: process.cwd(),
+                    env: {
+                        ...process.env,
+                        NPL_ENGINE_URL: NPL_ENGINE_URL,
+                        NPL_TOKEN: token
+                    }
+                });
+
+                if (stderr) {
+                    console.warn('Generator warnings:', stderr);
+                }
+
+                console.log('A2A methods regenerated successfully for existing protocol');
+
+                // Force refresh of dynamic method manager
+                dynamicMethodManager.forceRefresh();
+
+                // Reload agent skills to pick up the existing protocol
+                reloadAgentSkills();
+
+                res.json({
+                    success: true,
+                    result: {
+                        package: pkg,
+                        protocol: protocol,
+                        deployment: 'already_deployed',
+                        a2aMethodsRegenerated: true
+                    },
+                    message: `Protocol ${pkg}.${protocol} already deployed, A2A methods updated`,
+                    timestamp: new Date().toISOString()
+                });
+                return;
+            } catch (genError: any) {
+                console.error('Failed to regenerate A2A methods for existing protocol:', genError);
+                
+                // Protocol was already deployed but A2A methods couldn't be regenerated
+                res.json({
+                    success: true,
+                    result: {
+                        package: pkg,
+                        protocol: protocol,
+                        deployment: 'already_deployed',
+                        a2aMethodsRegenerated: false,
+                        warning: 'Protocol already deployed but A2A methods could not be regenerated'
+                    },
+                    message: `Protocol ${pkg}.${protocol} already deployed`,
+                    timestamp: new Date().toISOString()
+                });
+                return;
+            }
+        }
+        
         res.status(500).json({
             error: errorMessage,
             details: errorDetails,
@@ -532,6 +639,9 @@ app.post('/a2a/refresh', async (req: Request, res: Response): Promise<void> => {
 
         // Force discovery and regeneration using the new automatic system
         await dynamicMethodManager.forceDiscovery();
+
+        // Reload agent skills to pick up any new protocols
+        reloadAgentSkills();
 
         res.json({
             success: true,
@@ -574,6 +684,9 @@ app.post('/a2a/discover', async (req: Request, res: Response): Promise<void> => 
 
         // Force discovery and regeneration
         await dynamicMethodManager.forceDiscovery();
+
+        // Reload agent skills to pick up any new protocols
+        reloadAgentSkills();
 
         res.json({
             success: true,
@@ -666,32 +779,9 @@ app.get('/a2a/protocols', async (req: Request, res: Response): Promise<void> => 
             console.warn('Failed to discover packages from engine spec:', error);
         }
 
-        // If no packages found, try direct package discovery
+        // If no packages found, use deployed packages file
         if (packages.length === 0) {
-            console.log('No packages found in engine spec, trying direct package discovery...');
-            const knownPackages = ['rfp_workflow', 'test_deploy'];
-            
-            for (const pkg of knownPackages) {
-                try {
-                    console.log(`Checking if package ${pkg} is available...`);
-                    const response = await fetch(
-                        `${NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`,
-                        {
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Accept': 'application/json'
-                            }
-                        }
-                    );
-                    
-                    if (response.ok) {
-                        packages.push(pkg);
-                        console.log(`Package ${pkg} is available`);
-                    }
-                } catch (error) {
-                    console.log(`Package ${pkg} is not available:`, error);
-                }
-            }
+            console.log('No packages found in engine spec - will use deployed packages file');
         }
 
         // Get protocol details for each package

@@ -7,14 +7,14 @@ const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM || 'noumena';
 
 // Test users
 const USERS = {
-    procurementAgent: {
-        username: 'procurement_agent',
-        password: 'agent-password-123',
+    orderAgent: {
+        username: 'buyer',
+        password: 'password123',
         clientId: 'noumena'
     },
-    financeAgent: {
-        username: 'finance_agent', 
-        password: 'agent-password-123',
+    supplierAgent: {
+        username: 'finance_manager', 
+        password: 'password123',
         clientId: 'noumena'
     },
     orchestrator: {
@@ -60,37 +60,39 @@ async function testProtocolInstantiation() {
     try {
         // Step 1: Get tokens for all parties
         console.log('🔑 Getting access tokens for all parties...');
-        const [procurementToken, financeToken, orchestratorToken] = await Promise.all([
-            getAccessToken(USERS.procurementAgent.username, USERS.procurementAgent.password, USERS.procurementAgent.clientId),
-            getAccessToken(USERS.financeAgent.username, USERS.financeAgent.password, USERS.financeAgent.clientId),
+        const [orderAgentToken, supplierAgentToken, orchestratorToken] = await Promise.all([
+            getAccessToken(USERS.orderAgent.username, USERS.orderAgent.password, USERS.orderAgent.clientId),
+            getAccessToken(USERS.supplierAgent.username, USERS.supplierAgent.password, USERS.supplierAgent.clientId),
             getAccessToken(USERS.orchestrator.username, USERS.orchestrator.password, USERS.orchestrator.clientId)
         ]);
         console.log('✅ All tokens obtained successfully\n');
 
         // Step 2: Prepare protocol instantiation request
         console.log('📋 Preparing protocol instantiation request...');
-        const rfpId = `rfp-multi-party-${Date.now()}`;
-        const requestedAmount = 85000;
+        const orderId = `order-multi-party-${Date.now()}`;
+        const orderAmount = 85000;
 
         const instantiationRequest = {
-            package: 'rfp_workflow',
-            protocol: 'RfpWorkflow',
+            package: 'payment_workflow',
+            protocol: 'OrderCommitment',
             parties: {
-                procurementAgent: {
-                    jwt: procurementToken
+                orderAgent: {
+                    jwt: orderAgentToken
                 },
-                financeAgent: {
-                    jwt: financeToken
+                supplierAgent: {
+                    jwt: supplierAgentToken
                 }
             },
             initialData: {
-                initialRfp: {
-                    rfpId: rfpId,
-                    title: "Multi-Party Consent Test - AI Platform",
-                    description: "Testing atomic protocol instantiation with verified party claims",
-                    requestedAmount: requestedAmount,
-                    requesterId: USERS.procurementAgent.username,
-                    createdAt: new Date().toISOString()
+                orderDetails: {
+                    productSpec: {
+                        name: "Enterprise AI Platform",
+                        description: "Multi-party consent test - AI Platform for enterprise use",
+                        sku: "AI-PLATFORM-001"
+                    },
+                    quantity: 1,
+                    price: orderAmount,
+                    deliveryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
                 }
             },
             orchestratorToken: orchestratorToken
@@ -99,8 +101,8 @@ async function testProtocolInstantiation() {
         console.log('📋 Request Details:');
         console.log(`   Protocol: ${instantiationRequest.package}.${instantiationRequest.protocol}`);
         console.log(`   Parties: ${Object.keys(instantiationRequest.parties).join(', ')}`);
-        console.log(`   RFP ID: ${rfpId}`);
-        console.log(`   Amount: $${requestedAmount}`);
+        console.log(`   Order ID: ${orderId}`);
+        console.log(`   Amount: $${orderAmount}`);
         console.log('');
 
         // Step 3: Instantiate protocol with multi-party consent
@@ -139,35 +141,35 @@ async function testProtocolInstantiation() {
         // Step 5: Test that parties can access the protocol
         console.log('🧪 Testing protocol access by parties...');
         
-        // Test procurement agent access
-        const procurementAccess = await axios.post(
+        // Test order agent access
+        const orderAgentAccess = await axios.post(
             `${A2A_SERVER_URL}/a2a/method`,
             {
-                package: 'rfp_workflow',
-                protocol: 'RfpWorkflow',
-                method: 'getRfpDetails',
+                package: 'payment_workflow',
+                protocol: 'OrderCommitment',
+                method: 'getorderdetails',
                 params: {
-                    protocolId: result.result.protocolId
+                    id: result.result.protocolId
                 },
-                token: procurementToken
+                token: orderAgentToken
             }
         );
-        console.log('✅ Procurement agent can access protocol');
+        console.log('✅ Order agent can access protocol');
 
-        // Test finance agent access
-        const financeAccess = await axios.post(
+        // Test supplier agent access
+        const supplierAgentAccess = await axios.post(
             `${A2A_SERVER_URL}/a2a/method`,
             {
-                package: 'rfp_workflow',
-                protocol: 'RfpWorkflow',
-                method: 'getRfpDetails',
+                package: 'payment_workflow',
+                protocol: 'OrderCommitment',
+                method: 'getorderdetails',
                 params: {
-                    protocolId: result.result.protocolId
+                    id: result.result.protocolId
                 },
-                token: financeToken
+                token: supplierAgentToken
             }
         );
-        console.log('✅ Finance agent can access protocol');
+        console.log('✅ Supplier agent can access protocol');
 
         console.log('');
         console.log('🎉 Multi-party protocol instantiation test completed successfully!');
@@ -192,31 +194,34 @@ async function testErrorHandling() {
 
     try {
         // Get tokens for testing
-        const [procurementToken, orchestratorToken] = await Promise.all([
-            getAccessToken(USERS.procurementAgent.username, USERS.procurementAgent.password, USERS.procurementAgent.clientId),
+        const [orderAgentToken, orchestratorToken] = await Promise.all([
+            getAccessToken(USERS.orderAgent.username, USERS.orderAgent.password, USERS.orderAgent.clientId),
             getAccessToken(USERS.orchestrator.username, USERS.orchestrator.password, USERS.orchestrator.clientId)
         ]);
 
         // Test 1: Missing JWT for one party
-        console.log('🔍 Test 1: Missing JWT for finance agent...');
+        console.log('🔍 Test 1: Missing JWT for supplier agent...');
         const invalidRequest = {
-            package: 'rfp_workflow',
-            protocol: 'RfpWorkflow',
+            package: 'payment_workflow',
+            protocol: 'OrderCommitment',
             parties: {
-                procurementAgent: {
-                    jwt: procurementToken
+                orderAgent: {
+                    jwt: orderAgentToken
                 },
-                financeAgent: {
+                supplierAgent: {
                     // Missing JWT
                 }
             },
             initialData: {
-                initialRfp: {
-                    rfpId: `rfp-error-test-${Date.now()}`,
-                    title: "Error Test",
-                    requestedAmount: 1000,
-                    requesterId: USERS.procurementAgent.username,
-                    createdAt: new Date().toISOString()
+                orderDetails: {
+                    productSpec: {
+                        name: "Error Test Product",
+                        description: "Product for error testing",
+                        sku: "ERROR-TEST-001"
+                    },
+                    quantity: 1,
+                    price: 1000,
+                    deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
                 }
             },
             orchestratorToken: orchestratorToken

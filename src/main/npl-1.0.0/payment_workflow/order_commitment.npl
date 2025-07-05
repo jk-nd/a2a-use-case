@@ -1,0 +1,191 @@
+package payment_workflow
+
+/**
+ * Struct to represent product specifications
+ * @param name The name of the product
+ * @param description Detailed description of the product
+ * @param sku Stock keeping unit identifier
+ */
+struct ProductSpec {
+    name: Text,
+    description: Text,
+    sku: Text
+};
+
+/**
+ * Struct to represent order details
+ * @param productSpec The product specification
+ * @param quantity Number of units ordered
+ * @param price Price per unit
+ * @param deliveryDate Expected delivery date
+ */
+struct OrderDetails {
+    productSpec: ProductSpec,
+    quantity: Number,
+    price: Number,
+    deliveryDate: DateTime
+};
+
+/**
+ * Order Commitment Protocol
+ * 
+ * This protocol manages the atomic commitment between an order agent and supplier agent.
+ * When an order is placed, both parties commit simultaneously:
+ * - Order Agent commits to pay the agreed amount
+ * - Supplier Agent commits to deliver the specified product
+ * 
+ * @param orderAgent The party placing the order and committing to pay
+ * @param supplierAgent The party supplying the product and committing to deliver
+ * @param orderDetails The details of the order including product, quantity, price, and delivery date
+ */
+@api
+protocol[orderAgent, supplierAgent] OrderCommitment(var orderDetails: OrderDetails) {
+    require(orderDetails.quantity > 0, "Quantity must be strictly positive");
+    require(orderDetails.price > 0, "Price must be strictly positive");
+    require(orderDetails.deliveryDate.isAfter(now(), false), "Delivery date must be in the future");
+
+    // States
+    initial state pending;
+    state committed;
+    state delivered;
+    state paid;
+    final state completed;
+    final state cancelled;
+
+    // Private variables
+    private var orderAgentCommitted = false;
+    private var supplierAgentCommitted = false;
+    private var actualDeliveryDate: Optional<DateTime> = optionalOf<DateTime>();
+    private var paymentDate: Optional<DateTime> = optionalOf<DateTime>();
+
+    /**
+     * Function to calculate the total order amount
+     * @return The total amount to be paid
+     */
+    function totalAmount() returns Number -> orderDetails.quantity * orderDetails.price;
+
+    /**
+     * Function to check if both parties have committed
+     * @return True if both parties have committed
+     */
+    function bothPartiesCommitted() returns Boolean -> orderAgentCommitted && supplierAgentCommitted;
+
+    /**
+     * Order Agent commits to pay the agreed amount
+     * This permission can only be called once by the order agent
+     */
+    @api
+    permission[orderAgent] commitToPay() | pending {
+        require(!orderAgentCommitted, "Order agent has already committed");
+        
+        orderAgentCommitted = true;
+        
+        if (bothPartiesCommitted()) {
+            become committed;
+        };
+    };
+
+    /**
+     * Supplier Agent commits to deliver the specified product
+     * This permission can only be called once by the supplier agent
+     */
+    @api
+    permission[supplierAgent] commitToDeliver() | pending {
+        require(!supplierAgentCommitted, "Supplier agent has already committed");
+        
+        supplierAgentCommitted = true;
+        
+        if (bothPartiesCommitted()) {
+            become committed;
+        };
+    };
+
+    /**
+     * Supplier Agent marks the product as delivered
+     * @param deliveryDate The actual delivery date
+     */
+    @api
+    permission[supplierAgent] markDelivered(deliveryDate: DateTime) | committed {
+        require(deliveryDate.isAfter(now().minus(days(1)), false), "Delivery date cannot be more than 1 day in the past");
+        
+        actualDeliveryDate = optionalOf(deliveryDate);
+        become delivered;
+    };
+
+    /**
+     * Order Agent pays the agreed amount
+     * @param paymentAmount The amount being paid
+     */
+    @api
+    permission[orderAgent] pay(paymentAmount: Number) | delivered {
+        require(paymentAmount == totalAmount(), "Payment amount must match total order amount");
+        
+        paymentDate = optionalOf(now());
+        become paid;
+    };
+
+    /**
+     * Complete the order after payment
+     * This can be called by either party to finalize the order
+     */
+    @api
+    permission[orderAgent | supplierAgent] complete() | paid {
+        become completed;
+    };
+
+    /**
+     * Cancel the order
+     * Can only be cancelled while pending or committed
+     * @param reason Reason for cancellation
+     */
+    @api
+    permission[orderAgent | supplierAgent] cancel(reason: Text) | pending, committed {
+        require(reason.length() > 0, "Cancellation reason cannot be empty");
+        become cancelled;
+    };
+
+    /**
+     * Get the current order status
+     * @return The current state of the order
+     */
+    @api
+    permission[orderAgent | supplierAgent] getStatus() returns Text | pending, committed, delivered, paid {
+        return activeState().getOrFail().toText();
+    };
+
+    /**
+     * Get the total amount to be paid
+     * @return The total order amount
+     */
+    @api
+    permission[orderAgent | supplierAgent] getTotalAmount() returns Number | pending, committed, delivered, paid {
+        return totalAmount();
+    };
+
+    /**
+     * Get the order details
+     * @return The complete order details
+     */
+    @api
+    permission[orderAgent | supplierAgent] getOrderDetails() returns OrderDetails | pending, committed, delivered, paid {
+        return orderDetails;
+    };
+
+    /**
+     * Check if order agent has committed
+     * @return True if order agent has committed
+     */
+    @api
+    permission[orderAgent | supplierAgent] isOrderAgentCommitted() returns Boolean | pending, committed, delivered, paid {
+        return orderAgentCommitted;
+    };
+
+    /**
+     * Check if supplier agent has committed
+     * @return True if supplier agent has committed
+     */
+    @api
+    permission[orderAgent | supplierAgent] isSupplierAgentCommitted() returns Boolean | pending, committed, delivered, paid {
+        return supplierAgentCommitted;
+    };
+} 

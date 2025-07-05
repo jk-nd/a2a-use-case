@@ -2,8 +2,8 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-async function deployRfpProtocol() {
-  console.log('🚀 Deploying RFP Protocol...\n');
+async function deployPaymentProtocol() {
+  console.log('🚀 Deploying Payment Protocol (OrderCommitment)...\n');
 
   try {
     // Get token for buyer
@@ -16,16 +16,16 @@ async function deployRfpProtocol() {
     const token = fs.readFileSync('test-token.txt', 'utf8').trim();
     console.log('✅ Token loaded successfully');
 
-    // Read the RFP protocol file
-    const rfpProtocolPath = path.join(__dirname, '../src/main/npl-1.0.0/rfp_workflow/rfp_protocol.npl');
-    const nplCode = fs.readFileSync(rfpProtocolPath, 'utf8');
-    console.log('✅ RFP protocol file loaded');
+    // Read the OrderCommitment protocol file
+    const protocolPath = path.join(__dirname, '../src/main/npl-1.0.0/payment_workflow/order_commitment.npl');
+    const nplCode = fs.readFileSync(protocolPath, 'utf8');
+    console.log('✅ OrderCommitment protocol file loaded');
 
     // Deploy the protocol
     console.log('📤 Deploying protocol to NPL engine...');
     const deployResponse = await axios.post('http://localhost:8000/a2a/deploy', {
-      package: 'rfp_workflow',
-      protocol: 'RfpWorkflow',
+      package: 'payment_workflow',
+      protocol: 'OrderCommitment',
       nplCode: nplCode,
       token: token
     }, {
@@ -50,7 +50,7 @@ async function deployRfpProtocol() {
     console.log('✅ A2A methods refreshed successfully!');
     console.log('📋 Refresh response:', refreshResponse.data);
 
-    console.log('\n🎉 RFP Protocol deployment completed successfully!');
+    console.log('\n🎉 Payment Protocol deployment completed successfully!');
 
   } catch (error) {
     console.error('❌ Deployment failed:', error.response?.data || error.message);
@@ -58,5 +58,9 @@ async function deployRfpProtocol() {
   }
 }
 
-// Run the deployment
-deployRfpProtocol(); 
+// Run the deployment if this script is executed directly
+if (require.main === module) {
+  deployPaymentProtocol();
+}
+
+module.exports = { deployPaymentProtocol }; 
