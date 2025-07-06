@@ -460,8 +460,6 @@ The comprehensive test suite covers:
 - ✅ **A2A Client** - Basic A2A server functionality
 - ✅ **Protocol Instantiation** - Multi-party consent
 - ✅ **Agent Communication** - Registration, discovery, and health monitoring
-- ✅ **Agent Discovery** - Advanced filtering and multi-format skill support
-- ✅ **Agent Messaging** - Direct messaging, collaboration, and communication statistics
 - ✅ **LLM Negotiation & Payment Workflow** - Intelligent agent negotiation with automatic payment execution
 
 ### **Testing Agent Communication**
@@ -555,9 +553,9 @@ curl http://localhost:8000/a2a/skills
 ### **Test Results**
 ```bash
 📊 Test Suite Summary
-✅ Passed: 9
+✅ Passed: 8
 ❌ Failed: 0
-📋 Total: 9
+📋 Total: 8
 
 🎉 All tests passed! Runtime deployment workflow, agent communication, and LLM negotiation are working correctly.
 
@@ -631,9 +629,9 @@ The system is now **production-ready** with all major issues resolved:
 ### 🎯 **Test Results**
 ```bash
 📊 Test Suite Summary
-✅ Passed: 9/9 tests
-❌ Failed: 0/9 tests
-📋 Total: 9 tests
+✅ Passed: 8/8 tests
+❌ Failed: 0/8 tests
+📋 Total: 8 tests
 
 🎉 All tests passed! System is production-ready.
 

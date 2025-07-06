@@ -11,6 +11,7 @@ The test suite validates the complete A2A (Agent2Agent) system with NPL (NOUMENA
 - **Multi-IdP Authentication** - Cross-organization authentication works
 - **Policy Enforcement** - Business rules are enforced through NPL protocols
 - **Cross-agent Communication** - Agents can collaborate securely
+- **LLM-Powered Negotiation** - Intelligent agent negotiation with automatic workflow execution
 - **Full Audit Trail** - All interactions are logged and traceable
 
 ## 📋 **Test Files and Functionality**
@@ -54,10 +55,10 @@ The test suite validates the complete A2A (Agent2Agent) system with NPL (NOUMENA
 
 ### **Phase 3: Dynamic Protocol Deployment Tests**
 
-#### `deploy-test-protocol.js`
-**Purpose**: Dynamic protocol deployment via A2A server
+#### `deploy-payment-workflow.js`
+**Purpose**: Dynamic payment workflow protocol deployment via A2A server
 **Tests**:
-- ✅ Deploy new NPL protocols at runtime
+- ✅ Deploy payment workflow NPL protocols at runtime
 - ✅ Method generation from deployed protocols
 - ✅ Protocol refresh and discovery
 - ✅ New protocol instantiation
@@ -68,20 +69,6 @@ The test suite validates the complete A2A (Agent2Agent) system with NPL (NOUMENA
 - Method generation is automatic
 - New protocols become available immediately
 - Protocol instantiation with JWT claims works
-
-#### `deploy-auto-discovery.js`
-**Purpose**: Auto-discovery functionality
-**Tests**:
-- ✅ Automatic protocol discovery
-- ✅ Method availability after deployment
-- ✅ Skills generation from new protocols
-- ✅ Real-time protocol updates
-
-**Functionality Verified**:
-- Auto-discovery mechanism works
-- New protocols are automatically detected
-- Method handlers are generated correctly
-- Skills are updated in real-time
 
 ---
 
@@ -131,12 +118,62 @@ The test suite validates the complete A2A (Agent2Agent) system with NPL (NOUMENA
 
 ---
 
+### **Phase 6: Agent Communication and Collaboration Tests**
+
+#### `test-agent-communication.js`
+**Purpose**: Comprehensive agent communication, discovery, and collaboration
+**Tests**:
+- ✅ Agent registration and discovery
+- ✅ Multi-format skill support (legacy + new)
+- ✅ Organization-based filtering
+- ✅ Skill-based filtering
+- ✅ Tag-based filtering
+- ✅ Real-time health monitoring
+- ✅ Direct messaging between agents
+- ✅ Broadcast messaging to all agents
+- ✅ Agent collaboration workflows
+- ✅ Message history and communication statistics
+
+**Functionality Verified**:
+- Agent discovery and registration works
+- Multi-format skill compatibility
+- Advanced filtering capabilities
+- Real-time health monitoring
+- Complete messaging system
+- Collaboration workflows
+- Communication analytics
+
+---
+
+### **Phase 7: LLM-Powered Negotiation Tests**
+
+#### `test-llm-negotiation.js`
+**Purpose**: Intelligent LLM-powered agent negotiation with automatic payment workflow execution
+**Tests**:
+- ✅ Direct agent communication with natural language
+- ✅ LLM-powered price negotiation and agreement
+- ✅ Automatic transition from negotiation to payment workflow
+- ✅ Protocol deployment and instantiation
+- ✅ Complete payment workflow execution
+- ✅ End-to-end negotiation → payment → completion cycle
+- ✅ Real-time status updates and audit trail
+
+**Functionality Verified**:
+- Intelligent agent negotiation works
+- Natural language communication
+- Dynamic pricing and agreement
+- Seamless workflow integration
+- Complete business process automation
+- Full audit trail of negotiation and payment
+
+---
+
 ## 🚀 **Running the Test Suite**
 
-### **Complete Test Suite**
+### **Complete Test Suite (8 Tests)**
 ```bash
 cd tests
-./run-tests.js
+node run-tests.js
 ```
 
 ### **Individual Tests**
@@ -148,16 +185,22 @@ node test_a2a_client.js
 node test_a2a_discovery.js
 
 # Dynamic deployment
-node deploy-test-protocol.js
-
-# Auto-discovery
-node deploy-auto-discovery.js
+node deploy-payment-workflow.js
 
 # End-to-end workflow
 node test_payment_workflow_deployment_and_workflow.js
 
 # Multi-party security
 node test-protocol-instantiation.js
+
+# Agent communication
+node test-agent-communication.js
+
+# LLM negotiation
+node test-llm-negotiation.js
+
+# Payment use case
+node payment-use-case/test_npl_protocol.js
 ```
 
 ### **Test Dependencies**
@@ -173,13 +216,14 @@ node test-protocol-instantiation.js
 
 | Functionality | Test Coverage | Status |
 |---------------|---------------|---------|
-| **Dynamic Protocol Deployment** | `deploy-test-protocol.js` | ✅ Complete |
-| **Real-time Method Generation** | `deploy-auto-discovery.js` | ✅ Complete |
+| **Dynamic Protocol Deployment** | `deploy-payment-workflow.js` | ✅ Complete |
+| **Real-time Method Generation** | `test_payment_workflow_deployment_and_workflow.js` | ✅ Complete |
 | **Multi-IdP Authentication** | All tests | ✅ Complete |
 | **Policy Enforcement** | `test_payment_workflow_deployment_and_workflow.js` | ✅ Complete |
-| **Cross-agent Communication** | `test_a2a_discovery.js` | ✅ Complete |
+| **Cross-agent Communication** | `test-agent-communication.js` | ✅ Complete |
 | **Protocol Discovery** | `test_a2a_discovery.js` | ✅ Complete |
 | **Multi-party Security** | `test-protocol-instantiation.js` | ✅ Complete |
+| **LLM-Powered Negotiation** | `test-llm-negotiation.js` | ✅ Complete |
 | **Error Handling** | All tests | ✅ Complete |
 | **Audit Trail** | `test_payment_workflow_deployment_and_workflow.js` | ✅ Complete |
 
@@ -201,20 +245,20 @@ node test-protocol-instantiation.js
 
 ### **Test Protocols**
 - `payment_workflow.OrderCommitment` - Main payment workflow (deployed at runtime)
-- `test_deploy.TestProtocol` - Dynamic deployment test
-- `auto_discovery.AutoTest` - Auto-discovery test
+- `payment_workflow.OrderCommitment` - LLM negotiation workflow
 
 ---
 
 ## 📊 **Test Results Interpretation**
 
 ### **Success Indicators**
-- ✅ All tests pass without errors
+- ✅ All 8 tests pass without errors
 - ✅ Protocol deployments succeed
 - ✅ State transitions complete correctly
 - ✅ Authentication works for all users
 - ✅ Method generation is automatic
 - ✅ Cross-agent communication works
+- ✅ LLM negotiation and payment workflow execute successfully
 
 ### **Failure Indicators**
 - ❌ Connection refused errors (services not running)
@@ -222,6 +266,7 @@ node test-protocol-instantiation.js
 - ❌ Protocol deployment failures (NPL engine issues)
 - ❌ Method not found errors (generation issues)
 - ❌ State transition failures (policy violations)
+- ❌ LLM negotiation failures (agent communication issues)
 
 ### **Troubleshooting**
 1. **Service Issues**: Check `docker-compose ps`
@@ -229,6 +274,7 @@ node test-protocol-instantiation.js
 3. **Protocol Issues**: Check NPL engine logs
 4. **Method Issues**: Check A2A server logs
 5. **Token Issues**: Regenerate tokens with `get-token.js`
+6. **Agent Issues**: Check agent logs and health status
 
 ---
 
@@ -241,6 +287,7 @@ The test suite provides comprehensive coverage of the A2A system functionality, 
 - **Multi-IdP authentication** enables cross-organization collaboration
 - **Policy enforcement** ensures business rule compliance
 - **Cross-agent communication** enables secure collaboration
+- **LLM-powered negotiation** provides intelligent agent interactions
 - **Full audit trail** maintains compliance and traceability
 
-The system is **fully functional** and ready for production use! 🚀 
+The system is **fully functional** and ready for production use with 8 comprehensive tests! 🚀 

@@ -124,6 +124,11 @@ const TESTS = [
     name: 'Agent Communication Test',
     file: 'test-agent-communication.js',
     description: 'Test agent registration, discovery, and communication'
+  },
+  {
+    name: 'LLM Negotiation & Payment Workflow Test',
+    file: 'test-llm-negotiation.js',
+    description: 'Test LLM-powered agent negotiation with automatic payment workflow execution'
   }
 ];
 
@@ -213,7 +218,7 @@ async function runAllTests() {
   log(`📋 Total: ${results.total}`, 'blue');
   
   if (results.failed === 0) {
-    log('\n🎉 All tests passed! Runtime deployment workflow is working correctly.', 'green');
+    log('\n🎉 All tests passed! Runtime deployment workflow, agent communication, and LLM negotiation are working correctly.', 'green');
   } else {
     log(`\n⚠️  ${results.failed} test(s) failed. Please review the errors above.`, 'yellow');
   }
