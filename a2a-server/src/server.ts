@@ -217,7 +217,15 @@ async function handleGetMyProtocolContent(params: any, token: string, res: Respo
  * Execute NPL method by name using dynamic loading
  */
 async function executeMethod(methodName: string, params: any) {
-    return await dynamicMethodManager.executeMethod(methodName, params);
+    // Get the method handler from the dynamic method manager
+    const methodHandlers = require('./method-handlers');
+    const handler = methodHandlers[methodName];
+    
+    if (!handler) {
+        throw new Error(`Unknown method: ${methodName}`);
+    }
+    
+    return await handler(params);
 }
 
 // Health check endpoint
@@ -228,12 +236,22 @@ app.get('/health', (req: Request, res: Response) => {
     npl_integration: true,
     protocol_deployment: true,
     protocol_instantiation: true,
+    event_stream: dynamicMethodManager.getStatus(),
     deployment_endpoints: [
       'POST /a2a/deploy',
       'POST /a2a/refresh', 
       'GET /a2a/protocols',
       'POST /a2a/instantiate'
     ],
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Event stream status endpoint
+app.get('/a2a/status', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    result: dynamicMethodManager.getStatus(),
     timestamp: new Date().toISOString()
   });
 });
@@ -393,6 +411,7 @@ app.post('/a2a/request', async (req: Request, res: Response) => {
 app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
     // Declare variables at function level so they're accessible in catch block
     let pkg: string = '', protocol: string = '', token: string = '', nplCode: string = '';
+    let technicalToken: string = '';
     
     try {
         const { package: pkgParam, protocol: protocolParam, nplCode: nplCodeParam, token: tokenParam } = req.body;
@@ -408,8 +427,11 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Validate token
+        // Validate user token (for audit purposes)
         const claims = validateToken(token);
+        
+        // Get technical token for deployment (prototype creation)
+        technicalToken = process.env.NPL_TECHNICAL_USER_TOKEN || process.env.NPL_TOKEN || '';
 
         console.log(`Deploying new protocol: ${pkg}.${protocol}`);
 
@@ -434,13 +456,14 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
             contentType: 'application/zip'
         });
 
-        // Deploy to NPL engine via management API using axios
+        // Deploy to NPL engine via management API using technical user token
+        // Protocol deployment (prototype creation) should use technical user
         const deployResponse = await axios.post(
             `${NPL_MANAGEMENT_URL}/management/application`,
             form,
             {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${technicalToken}`,
                     ...form.getHeaders()
                 },
                 maxContentLength: Infinity,
@@ -451,13 +474,9 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
         const deployResult = deployResponse.data;
         console.log(`Protocol ${pkg}.${protocol} deployed successfully`);
 
-        // Add the package to the deployed packages list
-        dynamicMethodManager.addDeployedPackage(pkg);
-        console.log(`📦 Added package ${pkg} to deployed packages list`);
-
-        // After successful deployment, refresh dynamic methods
-        dynamicMethodManager.forceRefresh();
-        console.log('🔄 DynamicMethodManager: Refreshed after protocol deployment');
+        // Track this deployment and wait for event confirmation
+        dynamicMethodManager.trackDeployment(pkg, protocol);
+        console.log(`📋 Tracking deployment: ${pkg}.${protocol} - waiting for event confirmation`);
 
         // Regenerate A2A methods for the new protocol
         console.log('Regenerating A2A methods...');
@@ -472,7 +491,7 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
                 env: {
                     ...process.env,
                     NPL_ENGINE_URL: NPL_ENGINE_URL,
-                    NPL_TOKEN: token
+                    NPL_TOKEN: technicalToken
                 }
             });
 
@@ -482,8 +501,8 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
 
             console.log('A2A methods regenerated successfully');
 
-            // Force refresh of dynamic method manager
-            dynamicMethodManager.forceRefresh();
+            // Force discovery and regeneration
+            await dynamicMethodManager.forceDiscovery();
 
             // Reload agent skills to pick up the new protocol
             reloadAgentSkills();
@@ -540,13 +559,9 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
         if (error.response && error.response.status === 409) {
             console.log(`Protocol ${pkg}.${protocol} already deployed, treating as success`);
             
-            // Add the package to the deployed packages list even if it already exists
-            dynamicMethodManager.addDeployedPackage(pkg);
-            console.log(`📦 Added package ${pkg} to deployed packages list (already deployed)`);
-            
-            // Refresh dynamic methods
-            dynamicMethodManager.forceRefresh();
-            console.log('🔄 DynamicMethodManager: Refreshed after protocol deployment (already deployed)');
+            // Protocol already deployed, trigger method generation directly
+            await dynamicMethodManager.regenerateMethodsForPackage(pkg);
+            console.log('🔄 DynamicMethodManager: Methods regenerated for existing protocol');
             
             // Regenerate A2A methods for the existing protocol
             console.log('Regenerating A2A methods for existing protocol...');
@@ -561,7 +576,7 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
                     env: {
                         ...process.env,
                         NPL_ENGINE_URL: NPL_ENGINE_URL,
-                        NPL_TOKEN: token
+                        NPL_TOKEN: technicalToken
                     }
                 });
 
@@ -571,8 +586,8 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
 
                 console.log('A2A methods regenerated successfully for existing protocol');
 
-                // Force refresh of dynamic method manager
-                dynamicMethodManager.forceRefresh();
+                // Force discovery and regeneration
+                await dynamicMethodManager.forceDiscovery();
 
                 // Reload agent skills to pick up the existing protocol
                 reloadAgentSkills();
@@ -647,7 +662,7 @@ app.post('/a2a/refresh', async (req: Request, res: Response): Promise<void> => {
             success: true,
             result: {
                 a2aMethodsRegenerated: true,
-                availableOperations: dynamicMethodManager.getAvailableOperations().length
+                availableOperations: dynamicMethodManager.getAvailableOperations()
             },
             message: 'A2A methods refreshed successfully',
             timestamp: new Date().toISOString()
@@ -692,7 +707,7 @@ app.post('/a2a/discover', async (req: Request, res: Response): Promise<void> => 
             success: true,
             result: {
                 discoveryTriggered: true,
-                availableOperations: dynamicMethodManager.getAvailableOperations().length,
+                availableOperations: dynamicMethodManager.getAvailableOperations(),
                 availableMappings: dynamicMethodManager.getAllMappings().length
             },
             message: 'Protocol discovery completed successfully',
@@ -830,7 +845,7 @@ app.get('/a2a/protocols', async (req: Request, res: Response): Promise<void> => 
                 packages: packages,
                 protocols: protocolDetails,
                 count: protocolDetails.length,
-                a2aOperations: dynamicMethodManager.getAvailableOperations().length
+                a2aOperations: dynamicMethodManager.getAvailableOperations()
             },
             timestamp: new Date().toISOString()
         });
@@ -951,8 +966,8 @@ app.post('/a2a/instantiate', async (req: Request, res: Response): Promise<void> 
 
         console.log(`✅ Protocol instantiated successfully: ${protocolInstance['@id']}`);
 
-        // After successful instantiation, refresh dynamic methods
-        dynamicMethodManager.forceRefresh();
+        // After successful instantiation, force discovery and regeneration
+        await dynamicMethodManager.forceDiscovery();
         console.log('🔄 DynamicMethodManager: Refreshed after protocol instantiation');
 
         // Return the protocol instance with party binding information

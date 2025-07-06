@@ -1208,3 +1208,63 @@ export type A2AError =
   | ContentTypeNotSupportedError
   | InvalidAgentResponseError;
 // --8<-- [end:A2AError]
+
+// --8<-- [start:MethodMapping]
+/**
+ * Represents a mapping between a method call and an NPL protocol operation
+ */
+export interface MethodMapping {
+  /** The NPL package name */
+  package: string;
+  /** The NPL protocol name */
+  protocol: string;
+  /** The method name */
+  method: string;
+  /** The OpenAPI operation ID */
+  operationId: string;
+  /** The HTTP path for the operation */
+  path: string;
+  /** The operation summary */
+  summary: string;
+}
+// --8<-- [end:MethodMapping]
+
+// --8<-- [start:MethodHandlers]
+/**
+ * Collection of method handlers indexed by operation ID
+ */
+export interface MethodHandlers {
+  [operationId: string]: (params: any) => Promise<any>;
+}
+// --8<-- [end:MethodHandlers]
+
+// --8<-- [start:ProtocolInfo]
+/**
+ * Information about an NPL protocol and its available methods
+ */
+export interface ProtocolInfo {
+  /** The NPL package name */
+  package: string;
+  /** The NPL protocol name */
+  protocol: string;
+  /** Available methods for this protocol */
+  methods: Array<{
+    name: string;
+    description: string;
+  }>;
+}
+// --8<-- [end:ProtocolInfo]
+
+// --8<-- [start:DefaultOpenAPISpec]
+/**
+ * Default OpenAPI specification for fallback
+ */
+export const defaultOpenAPISpec = {
+  openapi: "3.0.0",
+  info: {
+    title: "Default NPL API",
+    version: "1.0.0"
+  },
+  paths: {}
+};
+// --8<-- [end:DefaultOpenAPISpec]

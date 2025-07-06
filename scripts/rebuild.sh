@@ -162,8 +162,23 @@ fi
 echo ""
 echo "🔑 Step 15: Getting technical user token for A2A server..."
 if [ -f "scripts/get-technical-token.js" ]; then
-    node scripts/get-technical-token.js
+    # Get the token and export it to environment (capture stderr to show progress)
+    node scripts/get-technical-token.js >/tmp/technical-token.txt
+    export NPL_TECHNICAL_USER_TOKEN=$(cat /tmp/technical-token.txt)
+    rm -f /tmp/technical-token.txt
+    
+    if [ -z "$NPL_TECHNICAL_USER_TOKEN" ]; then
+        echo "❌ Failed to capture technical user token"
+        exit 1
+    fi
+    
     echo "✅ Technical user token obtained and environment variable set!"
+    echo "Token key ID: $(echo $NPL_TECHNICAL_USER_TOKEN | cut -d'.' -f1 | base64 -d 2>/dev/null | jq -r '.kid' 2>/dev/null || echo 'unknown')"
+    
+    # Restart A2A server with new token
+    echo "🔄 Restarting A2A server with new technical token..."
+    NPL_TECHNICAL_USER_TOKEN=$NPL_TECHNICAL_USER_TOKEN docker-compose up -d a2a-server
+    echo "✅ A2A server restarted with updated token!"
 else
     echo "⚠️  scripts/get-technical-token.js not found, skipping technical token generation"
 fi
@@ -173,8 +188,10 @@ cd "$PROJECT_ROOT"
 # Step 16: Final verification
 echo ""
 echo "🔍 Step 16: Final verification..."
+echo "   Waiting for A2A server process to stabilize..."
+sleep 5
 echo "   Checking A2A server process..."
-if docker exec a2a-a2a-server-1 ps aux | grep -q "ts-node src/server.ts"; then
+if docker exec a2a-a2a-server-1 ps aux | grep -q "ts-node.*src/server.ts"; then
     echo "✅ A2A server running TypeScript directly"
 else
     echo "❌ A2A server not running TypeScript directly"

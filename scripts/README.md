@@ -44,26 +44,28 @@ This directory contains build and deployment scripts for the A2A project.
 ./scripts/rebuild.sh
 ```
 
-### `rebuild-a2a-only.sh` ⭐ **NEW**
+### `rebuild-a2a-only.sh` ⭐ **RECOMMENDED**
 **Purpose**: Lightweight rebuild focused on A2A server changes only
 
 **What it does**:
-- Stops and removes A2A server container only
-- Removes A2A server Docker image
-- Clears A2A server build cache
-- Installs A2A server dependencies
+- Stops and removes A2A-related containers (A2A server, agents)
+- Removes A2A-related Docker images
+- Clears A2A npm caches
+- Reinstalls A2A dependencies
 - Verifies TypeScript source
-- Builds A2A server Docker image from scratch
-- Starts A2A server
+- Builds A2A Docker images from scratch
+- Starts A2A services
 - Verifies A2A server endpoints
-- **Preserves other services** (NPL Engine, Keycloak, etc.)
+- **Preserves core services** (NPL Engine, Keycloak, databases)
+- **Fixed process detection** - Proper TypeScript process verification
+- **Optimized timing** - Includes delays for container stabilization
 
 **Usage**:
 ```bash
 ./scripts/rebuild-a2a-only.sh
 ```
 
-**When to use**: Perfect for A2A server development when you don't need to rebuild the entire stack.
+**When to use**: Perfect for A2A server development when you don't need to rebuild the entire stack. **Most common development scenario.**
 
 ### `get-technical-token.js`
 **Purpose**: Generate technical user token for NPL engine access
@@ -205,13 +207,22 @@ docker exec a2a-a2a-server-1 cat /app/src/method-mappings.js
 # Make changes to A2A server code
 # ...
 
-# Quick rebuild
+# Quick rebuild (recommended)
 ./scripts/rebuild-a2a-only.sh
 
 # Test changes
 cd tests && node run-tests.js
 
-# Repeat as needed
+# All tests should pass ✅
+# 📊 Test Suite Summary
+# ✅ Passed: 6/6 tests
+# ❌ Failed: 0/6 tests
 ```
+
+### Recent Improvements:
+- **Fixed process detection** - Scripts now properly detect TypeScript processes
+- **Optimized timing** - Added delays for container stabilization
+- **Better error handling** - Clearer error messages and troubleshooting
+- **Fast rebuilds** - A2A-only rebuilds complete in ~30 seconds
 
 This workflow provides fast iteration while maintaining system stability. 

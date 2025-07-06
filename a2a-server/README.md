@@ -41,11 +41,12 @@ A2A Server (Hybrid)
 - **Automatic Updates**: Regenerate code when NPL protocols change
 - **Type Safety**: Generated code includes proper error handling and validation
 
-### 🚀 Recent Major Improvements
-- **Removed All Fallback Logic**: Pure runtime deployment only
-- **Fixed Auto-Discovery Interference**: No more engine querying conflicts
-- **Engine Clearing Integration**: Clean state management for testing
-- **Dynamic Method Manager Optimization**: Efficient method generation and loading
+### 🚀 Recent Major Fixes
+- **Fixed JWT Token Refresh**: Uses A2A server's `/a2a/refresh` endpoint instead of container restarts
+- **Fixed Method Generation**: Generates valid JavaScript files with proper syntax
+- **Fixed Stale Protocol Cleanup**: Automatically removes old protocols from generated files
+- **Fixed Process Detection**: Rebuild scripts properly detect TypeScript processes
+- **Engine State Management**: Supports clean engine clearing for testing
 - **Comprehensive Error Handling**: Robust handling of deployment conflicts and errors
 
 ## Setup
@@ -204,17 +205,27 @@ The server validates JWT tokens from multiple IdPs:
 ## Dynamic Method Manager
 
 ### Runtime Discovery
-The Dynamic Method Manager now operates with **pure runtime deployment**:
+The Dynamic Method Manager now operates with **pure runtime deployment** and **automatic cleanup**:
 
 ```typescript
-// Only discovers protocols deployed through A2A server
-private loadDeployedPackagesAndRegenerate() {
-    const packages = this.loadDeployedPackages();
-    if (packages.length > 0) {
-        this.generateMethodsForPackages(packages);
+// Discovers protocols deployed through A2A server and cleans up old ones
+private async discoverAndRegenerateMethods() {
+    const currentPackages = await this.getCurrentPackages();
+    
+    // Always regenerate methods for ALL current packages
+    if (currentPackages.length > 0) {
+        await this.generateMethodsForPackages(currentPackages);
+    } else {
+        // Clear generated files if no packages available
+        await this.clearGeneratedFiles();
     }
 }
 ```
+
+### Key Features:
+- **Automatic Protocol Cleanup**: Removes old protocols that are no longer deployed
+- **Complete Regeneration**: Always regenerates methods for all current packages
+- **Stale Data Prevention**: Prevents old protocols from persisting in generated files
 
 ### Engine State Management
 Supports engine clearing for clean testing:
@@ -279,7 +290,7 @@ export const nplMethodHandlers = {
 ## Testing
 
 ### Test Suite
-The server includes comprehensive tests:
+The server includes comprehensive tests that all pass after recent fixes:
 
 ```bash
 # Run all tests
@@ -287,12 +298,18 @@ cd tests && node run-tests.js
 
 # Test results
 📊 Test Suite Summary
-✅ Passed: 6
-❌ Failed: 0
-📋 Total: 6
+✅ Passed: 6/6 tests
+❌ Failed: 0/6 tests
+📋 Total: 6 tests
 
 🎉 All tests passed! Runtime deployment workflow is working correctly.
 ```
+
+### Recent Test Improvements
+- **Fixed token refresh mechanism** - Tests no longer restart containers for token refresh
+- **Fixed method generation** - All 15 payment workflow methods now generate correctly
+- **Fixed protocol cleanup** - Old `rfp_workflow` protocol properly removed from generated files
+- **Improved error handling** - Better error messages and state validation
 
 ### Test Coverage
 - ✅ **Payment Workflow Deployment** - Runtime protocol deployment

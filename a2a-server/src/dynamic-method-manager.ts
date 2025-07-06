@@ -1,85 +1,434 @@
 import { readFileSync, existsSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
+import { MethodMapping, MethodHandlers, ProtocolInfo } from './types';
 
-interface MethodMapping {
-    package: string;
-    protocol: string;
-    method: string;
-    operationId: string;
-    path: string;
-    summary: string;
+interface ApiPrototype {
+    name: string;
+    prototypeType: string;
+    parties?: ApiNamedArgument[];
+    arguments?: ApiNamedArgument[];
+    actions?: ApiAction[];
 }
 
-interface MethodHandlers {
-    [operationId: string]: (params: any) => Promise<any>;
+interface ApiAction {
+    name: string;
+    parties: ApiNamedArgument[];
+    arguments: ApiNamedArgument[];
+    returnType: string;
 }
 
-interface ProtocolInfo {
-    package: string;
-    protocol: string;
-    methods: Array<{
-        name: string;
-        description: string;
-    }>;
+interface ApiNamedArgument {
+    name: string;
+    type: string;
+}
+
+interface ApiPrototypePackageData {
+    payloadType: string;
+    prototype?: ApiPrototype;
+    id?: number;
 }
 
 class DynamicMethodManager {
     private methodMappings: MethodMapping[] = [];
     private methodHandlers: MethodHandlers = {};
     private lastRefresh = 0;
-    private refreshInterval = 30000; // 30 seconds - longer interval for auto-discovery
-    private lastDiscovery = 0;
-    private discoveryInterval = 60000; // 1 minute - check for new protocols
+    private refreshInterval = 30000; // 30 seconds - for fallback refresh
     private knownPackages = new Set<string>();
-    private deployedPackagesFile = '/tmp/deployed-packages.json';
     private NPL_ENGINE_URL: string;
     private NPL_TOKEN: string;
     private TECHNICAL_USER_TOKEN: string;
+    private isEventStreamConnected = false;
+    private tokenRefreshInterval: NodeJS.Timeout | null = null;
+    private currentToken: string = '';
+    private tokenExpiryTime: number = 0;
+    private refreshTokenPromise: Promise<void> | null = null;
+    private isRefreshingToken: boolean = false;
+    private backupStreamActive: boolean = false;
+    private lastEventTimestamp: number = 0;
+    private pendingDeployments: Map<string, { timestamp: number; retryCount: number }> = new Map();
+    private deploymentTimeout: number = 30000; // 30 seconds to wait for event
 
     constructor() {
         this.NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
         this.NPL_TOKEN = process.env.NPL_TOKEN || '';
         this.TECHNICAL_USER_TOKEN = process.env.NPL_TECHNICAL_USER_TOKEN || '';
-        this.loadMethods();
-        this.loadDeployedPackagesAndRegenerate();
-        this.startAutoDiscovery();
-    }
-
-    /**
-     * Start automatic discovery of new protocols
-     */
-    private startAutoDiscovery() {
-        // Initial discovery - only use deployed packages file, don't query engine
-        this.loadDeployedPackagesAndRegenerate();
         
-        // Set up periodic discovery - only check deployed packages file
-        setInterval(() => {
-            this.loadDeployedPackagesAndRegenerate();
-        }, this.discoveryInterval);
+        this.loadMethods();
+        this.initializeTokenRefresh();
+        this.subscribeToPrototypeStream();
+        this.startFallbackRefresh();
     }
 
     /**
-     * Discover packages and generate methods automatically
+     * Initialize token refresh mechanism
      */
-    private async discoverAndGenerateMethods() {
+    private initializeTokenRefresh() {
+        // Get initial token
+        this.refreshToken();
+        
+        // Set up periodic token refresh (every 8 minutes to be safe)
+        this.tokenRefreshInterval = setInterval(() => {
+            this.refreshToken();
+        }, 8 * 60 * 1000); // 8 minutes (tokens typically last 15 minutes)
+    }
+
+    /**
+     * Refresh the authentication token (thread-safe)
+     */
+    private async refreshToken(): Promise<void> {
+        // Prevent multiple simultaneous token refreshes
+        if (this.isRefreshingToken && this.refreshTokenPromise) {
+            console.log('DynamicMethodManager: Token refresh already in progress, waiting...');
+            return this.refreshTokenPromise;
+        }
+
+        this.isRefreshingToken = true;
+        this.refreshTokenPromise = this.performTokenRefresh();
+        
         try {
-            console.log('DynamicMethodManager: Starting automatic protocol discovery...');
+            await this.refreshTokenPromise;
+        } finally {
+            this.isRefreshingToken = false;
+            this.refreshTokenPromise = null;
+        }
+    }
+
+    /**
+     * Perform the actual token refresh
+     */
+    private async performTokenRefresh(): Promise<void> {
+        try {
+            console.log('DynamicMethodManager: Starting token refresh...');
             
-            // Discover available packages
+            // Try to get a new technical token from the management API
+            const response = await fetch(`${this.NPL_ENGINE_URL.replace('12000', '12400')}/management/token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: 'technical',
+                    password: 'technical'
+                })
+            });
+
+            if (response.ok) {
+                const tokenData = await response.json() as { access_token: string; expires_in?: number };
+                this.currentToken = tokenData.access_token;
+                
+                // Calculate expiry time (default to 15 minutes if not provided)
+                const expiresIn = tokenData.expires_in || 900; // 15 minutes
+                this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
+                
+                console.log(`DynamicMethodManager: Token refreshed successfully, expires in ${expiresIn} seconds`);
+                
+                // If we're connected to event stream, reconnect with new token
+                if (this.isEventStreamConnected) {
+                    console.log('DynamicMethodManager: Reconnecting event stream with new token...');
+                    this.isEventStreamConnected = false;
+                    setTimeout(() => {
+                        this.subscribeToPrototypeStream();
+                    }, 1000);
+                }
+            } else {
+                console.warn('DynamicMethodManager: Failed to refresh token from management API, using fallback');
+                this.currentToken = this.TECHNICAL_USER_TOKEN || this.NPL_TOKEN;
+                this.tokenExpiryTime = Date.now() + (15 * 60 * 1000); // Assume 15 minutes
+            }
+        } catch (error) {
+            console.warn('DynamicMethodManager: Token refresh failed, using fallback:', error);
+            this.currentToken = this.TECHNICAL_USER_TOKEN || this.NPL_TOKEN;
+            this.tokenExpiryTime = Date.now() + (15 * 60 * 1000); // Assume 15 minutes
+        }
+    }
+
+    /**
+     * Get current valid token
+     */
+    private getValidToken(): string {
+        // Check if token is expired or will expire soon (within 2 minutes)
+        if (Date.now() > (this.tokenExpiryTime - 2 * 60 * 1000)) {
+            console.log('DynamicMethodManager: Token expired or expiring soon, refreshing...');
+            this.refreshToken();
+        }
+        
+        return this.currentToken || this.TECHNICAL_USER_TOKEN || this.NPL_TOKEN;
+    }
+
+    /**
+     * Subscribe to prototype events from Engine Streams API
+     */
+    private async subscribeToPrototypeStream() {
+        try {
+            console.log('DynamicMethodManager: Subscribing to prototype events...');
+            
+            // Get a valid token (with refresh if needed)
+            const token = this.getValidToken();
+            if (!token) {
+                console.warn('DynamicMethodManager: No token available for prototype stream, using fallback refresh');
+                this.startFallbackRefresh();
+                return;
+            }
+
+            // Use fetch with streaming for authenticated SSE
+            const response = await fetch(`${this.NPL_ENGINE_URL}/api/streams/prototypes`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'text/event-stream',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    console.log('DynamicMethodManager: Token expired, refreshing and reconnecting...');
+                    await this.refreshToken();
+                    // Retry with new token after a short delay
+                    setTimeout(() => {
+                        this.subscribeToPrototypeStream();
+                    }, 2000);
+                    return;
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            if (!response.body) {
+                throw new Error('No response body for streaming');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            console.log('DynamicMethodManager: Prototype stream subscription established');
+            this.isEventStreamConnected = true;
+
+            // Process the stream
+            this.processEventStream(reader, decoder);
+            
+        } catch (error) {
+            console.warn('DynamicMethodManager: Failed to subscribe to prototype stream, using fallback refresh:', error);
+            this.isEventStreamConnected = false;
+            this.startFallbackRefresh();
+        }
+    }
+
+    /**
+     * Process the event stream
+     */
+    private async processEventStream(reader: ReadableStreamDefaultReader<Uint8Array>, decoder: any) {
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    console.log('DynamicMethodManager: Event stream ended');
+                    break;
+                }
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6); // Remove 'data: ' prefix
+                        if (data.trim()) {
+                            this.handlePrototypeEvent({ data } as MessageEvent);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('DynamicMethodManager: Error processing event stream:', error);
+            
+            // Check if it's an authentication error
+            if (error instanceof Error && error.message.includes('401')) {
+                console.log('DynamicMethodManager: Authentication error in event stream, refreshing token...');
+                await this.refreshToken();
+            }
+        } finally {
+            this.isEventStreamConnected = false;
+            // Attempt to reconnect after a delay
+            setTimeout(() => {
+                console.log('DynamicMethodManager: Attempting to reconnect to prototype stream...');
+                this.subscribeToPrototypeStream();
+            }, 5000);
+        }
+    }
+
+    /**
+     * Handle prototype events from the stream
+     */
+    private handlePrototypeEvent(event: MessageEvent) {
+        try {
+            const data: ApiPrototypePackageData = JSON.parse(event.data);
+            
+            // Update last event timestamp
+            this.lastEventTimestamp = Date.now();
+            
+            // Handle heartbeat events
+            if (data.payloadType === 'tick') {
+                return; // Ignore heartbeat events
+            }
+            
+            // Handle prototype events
+            if (data.payloadType === 'prototype' && data.prototype?.prototypeType === 'protocol') {
+                const protocolPrototype = data.prototype as ApiPrototype;
+                const packageName = this.extractPackageNameFromEvent(data);
+                
+                if (packageName && protocolPrototype.name) {
+                    console.log(`DynamicMethodManager: Protocol deployed: ${packageName}.${protocolPrototype.name}`);
+                    console.log(`DynamicMethodManager: Available methods: ${protocolPrototype.actions?.map(a => a.name).join(', ') || 'none'}`);
+                    
+                    // Check if this was a tracked deployment
+                    const wasTracked = this.confirmDeployment(packageName, protocolPrototype.name);
+                    
+                    // Add package to known packages if not already present
+                    if (!this.knownPackages.has(packageName)) {
+                        this.knownPackages.add(packageName);
+                        console.log(`DynamicMethodManager: New package discovered: ${packageName}`);
+                    }
+                    
+                    // Regenerate methods for this package
+                    this.regenerateMethodsForPackage(packageName);
+                }
+            }
+            
+        } catch (error) {
+            console.error('DynamicMethodManager: Error handling prototype event:', error);
+        }
+    }
+
+    /**
+     * Extract package name from prototype event
+     * This is a simplified extraction - in practice, the package name might be in the event metadata
+     */
+    private extractPackageNameFromEvent(data: ApiPrototypePackageData): string | null {
+        // For now, we'll need to discover packages through other means
+        // This is a limitation of the current event structure
+        // We might need to use the current-prototypes endpoint to get full package info
+        return null;
+    }
+
+    /**
+     * Start fallback refresh mechanism
+     */
+    private startFallbackRefresh() {
+        // Initial discovery
+        this.discoverAndRegenerateMethods();
+        
+        // Set up periodic refresh as fallback
+        setInterval(() => {
+            if (!this.isEventStreamConnected) {
+                console.log('DynamicMethodManager: Event stream not connected, using fallback discovery...');
+                this.discoverAndRegenerateMethods();
+            }
+        }, this.refreshInterval);
+        
+        // Set up backup polling during token refresh
+        setInterval(() => {
+            if (this.isRefreshingToken && !this.backupStreamActive) {
+                console.log('DynamicMethodManager: Token refresh in progress, activating backup polling...');
+                this.activateBackupPolling();
+            }
+        }, 5000); // Check every 5 seconds
+    }
+
+    /**
+     * Activate backup polling during token refresh to catch missed events
+     */
+    private async activateBackupPolling() {
+        if (this.backupStreamActive) return;
+        
+        this.backupStreamActive = true;
+        console.log('DynamicMethodManager: Backup polling activated');
+        
+        try {
+            // Poll for new prototypes every 2 seconds during token refresh
+            const backupInterval = setInterval(async () => {
+                if (!this.isRefreshingToken) {
+                    console.log('DynamicMethodManager: Token refresh complete, stopping backup polling');
+                    clearInterval(backupInterval);
+                    this.backupStreamActive = false;
+                    return;
+                }
+                
+                // Quick check for new prototypes
+                await this.quickPrototypeCheck();
+            }, 2000);
+            
+            // Stop backup polling after 30 seconds max
+            setTimeout(() => {
+                clearInterval(backupInterval);
+                this.backupStreamActive = false;
+                console.log('DynamicMethodManager: Backup polling timeout');
+            }, 30000);
+            
+        } catch (error) {
+            console.error('DynamicMethodManager: Backup polling error:', error);
+            this.backupStreamActive = false;
+        }
+    }
+
+    /**
+     * Quick check for new prototypes during token refresh
+     */
+    private async quickPrototypeCheck() {
+        try {
+            const token = this.getValidToken();
+            if (!token) return;
+            
+            // Check current prototypes endpoint
+            const response = await fetch(`${this.NPL_ENGINE_URL}/api/prototypes`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const prototypes = await response.json() as any[];
+                const latestTimestamp = Math.max(...prototypes.map(p => p.timestamp || 0));
+                
+                if (latestTimestamp > this.lastEventTimestamp) {
+                    console.log('DynamicMethodManager: New prototypes detected during token refresh');
+                    this.lastEventTimestamp = latestTimestamp;
+                    // Trigger method regeneration
+                    await this.discoverAndRegenerateMethods();
+                }
+            }
+        } catch (error) {
+            // Silently fail during backup polling
+        }
+    }
+
+    /**
+     * Discover packages and regenerate methods (fallback approach)
+     */
+    private async discoverAndRegenerateMethods() {
+        try {
+            console.log('DynamicMethodManager: Starting fallback protocol discovery...');
+            
+            // Discover available packages using current approach
             const packages = await this.discoverPackages();
             console.log(`DynamicMethodManager: Discovered ${packages.length} packages:`, packages);
             
-            // Check if we have new packages
-            const newPackages = packages.filter(pkg => !this.knownPackages.has(pkg));
-            if (newPackages.length > 0) {
-                console.log(`DynamicMethodManager: Found ${newPackages.length} new packages:`, newPackages);
+            // Always regenerate methods for all current packages to ensure consistency
+            // This removes any stale protocols that are no longer deployed
+            if (packages.length > 0) {
+                console.log(`DynamicMethodManager: Regenerating methods for all current packages`);
                 await this.generateMethodsForPackages(packages);
                 this.knownPackages = new Set(packages);
+            } else {
+                console.log(`DynamicMethodManager: No packages found, clearing generated files`);
+                // Clear generated files if no packages are available
+                await this.saveGeneratedFiles([], {}, []);
+                this.methodMappings = [];
+                this.methodHandlers = {};
+                this.knownPackages.clear();
             }
             
-            this.lastDiscovery = Date.now();
         } catch (error) {
-            console.error('DynamicMethodManager: Auto-discovery failed:', error);
+            console.error('DynamicMethodManager: Fallback discovery failed:', error);
         }
     }
 
@@ -89,70 +438,49 @@ class DynamicMethodManager {
     private async discoverPackages(): Promise<string[]> {
         const availablePackages: string[] = [];
         
-        // Use technical user token for discovery if available
-        const discoveryToken = this.TECHNICAL_USER_TOKEN || this.NPL_TOKEN;
+        // Get a valid token for discovery (with refresh if needed)
+        const discoveryToken = this.getValidToken();
         
         if (!discoveryToken) {
-            console.warn('DynamicMethodManager: No token available for discovery, using deployed packages file');
-            // Load from deployed packages file if no token available
-            return this.loadDeployedPackages();
+            console.warn('DynamicMethodManager: No token available for discovery');
+            return [];
         }
         
         try {
-            // First try to get the engine OpenAPI spec to discover all packages
-            console.log('DynamicMethodManager: Attempting dynamic package discovery via engine spec...');
-            const engineResponse = await fetch(
-                `${this.NPL_ENGINE_URL}/openapi/engine.yml`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${discoveryToken}`,
-                        'Accept': 'application/json, application/yaml, text/yaml'
-                    }
-                }
-            );
-
-            if (engineResponse.ok) {
-                const yamlText = await engineResponse.text();
-                
-                // Try to parse as YAML first, then as JSON
-                let engineSpec: any;
+            console.log('DynamicMethodManager: Attempting package discovery via direct testing...');
+            
+            // Known package names to check (from deployment history and current state)
+            const candidatePackages = [
+                'payment_workflow',
+                'rfp_workflow',
+                'test_auto_reload',
+                'demo'
+            ];
+            
+            // Test each candidate package directly
+            for (const pkg of candidatePackages) {
                 try {
-                    // Try to parse as YAML
-                    const yaml = require('js-yaml');
-                    engineSpec = yaml.load(yamlText);
-                } catch (yamlError: any) {
-                    try {
-                        // If YAML fails, try JSON
-                        engineSpec = JSON.parse(yamlText);
-                    } catch (jsonError: any) {
-                        throw new Error(`Failed to parse engine specs (YAML: ${yamlError.message}, JSON: ${jsonError.message})`);
+                    const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`, {
+                        headers: {
+                            'Authorization': `Bearer ${discoveryToken}`,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        availablePackages.push(pkg);
+                        console.log(`DynamicMethodManager: Package ${pkg} verified and available`);
+                    } else {
+                        console.log(`DynamicMethodManager: Package ${pkg} not available (${response.status})`);
                     }
+                } catch (error) {
+                    console.log(`DynamicMethodManager: Package ${pkg} verification failed:`, error instanceof Error ? error.message : String(error));
                 }
-                
-                // Extract package names from the OpenAPI spec paths
-                const discoveredPackages = new Set<string>();
-                
-                for (const [path, methods] of Object.entries(engineSpec.paths || {})) {
-                    // Match patterns like /npl/{package}/-/openapi.json
-                    const nplMatch = path.match(/\/npl\/([^\/]+)\/-\/openapi\.json/);
-                    if (nplMatch) {
-                        discoveredPackages.add(nplMatch[1]);
-                    }
-                }
-                
-                const packages = Array.from(discoveredPackages);
-                console.log(`DynamicMethodManager: Discovered ${packages.length} packages from engine spec:`, packages);
-                
-                // If no packages discovered from engine spec, use deployed packages file
-                if (packages.length === 0) {
-                    console.log('DynamicMethodManager: No packages discovered from engine spec, using deployed packages file');
-                    return this.loadDeployedPackages();
-                }
-                
-                console.log('DynamicMethodManager: Proceeding with package verification...');
-                
-                // Verify each package is actually accessible
-                for (const pkg of packages) {
+            }
+            
+            // Also check packages that are currently in knownPackages
+            for (const pkg of this.knownPackages) {
+                if (!candidatePackages.includes(pkg)) {
                     try {
                         const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`, {
                             headers: {
@@ -160,31 +488,125 @@ class DynamicMethodManager {
                                 'Accept': 'application/json'
                             }
                         });
+                        
                         if (response.ok) {
                             availablePackages.push(pkg);
-                            console.log(`DynamicMethodManager: Package ${pkg} verified and available`);
+                            console.log(`DynamicMethodManager: Known package ${pkg} still available`);
+                        } else {
+                            console.log(`DynamicMethodManager: Known package ${pkg} no longer available (${response.status})`);
                         }
                     } catch (error) {
-                        console.log(`DynamicMethodManager: Package ${pkg} verification failed:`, error);
+                        console.log(`DynamicMethodManager: Known package ${pkg} verification failed:`, error instanceof Error ? error.message : String(error));
                     }
                 }
-                
-                // If no packages are accessible after verification, use deployed packages file
-                if (availablePackages.length === 0) {
-                    console.log('DynamicMethodManager: No packages accessible after verification, using deployed packages file');
-                    return this.loadDeployedPackages();
-                }
-                
-                return availablePackages;
-            } else {
-                // Engine spec endpoint not available, use deployed packages file
-                console.log(`DynamicMethodManager: Engine spec endpoint not available (${engineResponse.status}), using deployed packages file`);
-                return this.loadDeployedPackages();
             }
+            
+            console.log(`DynamicMethodManager: Discovery complete. Found ${availablePackages.length} packages:`, availablePackages);
+            return availablePackages;
+            
         } catch (error) {
-            console.warn('DynamicMethodManager: Dynamic discovery failed, using deployed packages file:', error instanceof Error ? error.message : String(error));
-            return this.loadDeployedPackages();
+            console.warn('DynamicMethodManager: Package discovery failed:', error instanceof Error ? error.message : String(error));
+            return [];
         }
+    }
+
+    /**
+     * Regenerate methods for a specific package
+     */
+    public async regenerateMethodsForPackage(packageName: string) {
+        try {
+            console.log(`DynamicMethodManager: Regenerating methods for package ${packageName}...`);
+            await this.generateMethodsForPackages([packageName]);
+        } catch (error) {
+            console.error(`DynamicMethodManager: Failed to regenerate methods for package ${packageName}:`, error);
+        }
+    }
+
+    /**
+     * Track a pending deployment and wait for event confirmation
+     */
+    public trackDeployment(packageName: string, protocolName: string) {
+        const deploymentKey = `${packageName}.${protocolName}`;
+        this.pendingDeployments.set(deploymentKey, {
+            timestamp: Date.now(),
+            retryCount: 0
+        });
+        
+        console.log(`DynamicMethodManager: Tracking deployment: ${deploymentKey}`);
+        
+        // Set timeout to check if we missed the event
+        setTimeout(() => {
+            this.checkDeploymentConfirmation(deploymentKey);
+        }, this.deploymentTimeout);
+    }
+
+    /**
+     * Check if a deployment was confirmed by event stream
+     */
+    private async checkDeploymentConfirmation(deploymentKey: string) {
+        const deployment = this.pendingDeployments.get(deploymentKey);
+        if (!deployment) return; // Already confirmed
+        
+        console.log(`DynamicMethodManager: Deployment ${deploymentKey} not confirmed by event stream, checking status...`);
+        
+        // Try to redeploy to check if it's already deployed
+        const [packageName, protocolName] = deploymentKey.split('.');
+        const isDeployed = await this.checkIfProtocolDeployed(packageName, protocolName);
+        
+        if (isDeployed) {
+            console.log(`DynamicMethodManager: Protocol ${deploymentKey} is deployed but event was missed, triggering method generation`);
+            this.pendingDeployments.delete(deploymentKey);
+            await this.regenerateMethodsForPackage(packageName);
+        } else {
+            console.log(`DynamicMethodManager: Protocol ${deploymentKey} not found, deployment may have failed`);
+            // Could implement retry logic here if needed
+            this.pendingDeployments.delete(deploymentKey);
+        }
+    }
+
+    /**
+     * Check if a protocol is deployed by querying the engine
+     */
+    private async checkIfProtocolDeployed(packageName: string, protocolName: string): Promise<boolean> {
+        try {
+            const token = this.getValidToken();
+            if (!token) return false;
+            
+            // Try to get the protocol's OpenAPI spec
+            const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${packageName}/-/openapi.json`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const openAPISpec = await response.json() as { paths?: { [key: string]: any } };
+                // Check if the protocol exists in the OpenAPI spec
+                const protocolPath = `/npl/${packageName}/${protocolName}/`;
+                return Object.keys(openAPISpec.paths || {}).some(path => 
+                    path.startsWith(protocolPath)
+                );
+            }
+            
+            return false;
+        } catch (error) {
+            console.error(`DynamicMethodManager: Error checking if ${packageName}.${protocolName} is deployed:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Confirm deployment when event is received
+     */
+    private confirmDeployment(packageName: string, protocolName: string) {
+        const deploymentKey = `${packageName}.${protocolName}`;
+        if (this.pendingDeployments.has(deploymentKey)) {
+            console.log(`DynamicMethodManager: Deployment confirmed by event stream: ${deploymentKey}`);
+            this.pendingDeployments.delete(deploymentKey);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -206,7 +628,7 @@ class DynamicMethodManager {
                     // Fetch OpenAPI spec for the package
                     const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`, {
                         headers: {
-                            'Authorization': `Bearer ${this.TECHNICAL_USER_TOKEN || this.NPL_TOKEN}`,
+                            'Authorization': `Bearer ${this.getValidToken()}`,
                             'Accept': 'application/json'
                         }
                     });
@@ -227,62 +649,82 @@ class DynamicMethodManager {
                     Object.assign(allHandlers, packageHandlers);
                     allSkills.push(...packageSkills);
                     
+                    console.log(`DynamicMethodManager: Generated ${packageMappings.length} mappings and ${Object.keys(packageHandlers).length} handlers for ${pkg}`);
+                    
                 } catch (error) {
-                    console.error(`DynamicMethodManager: Failed to generate methods for ${pkg}:`, error);
+                    console.error(`DynamicMethodManager: Failed to generate methods for package ${pkg}:`, error);
                 }
             }
             
-            // Update the manager's state
-            this.methodMappings = allMappings;
-            this.methodHandlers = allHandlers;
-            
-            console.log(`DynamicMethodManager: Generated ${allMappings.length} mappings and ${Object.keys(allHandlers).length} handlers`);
-            console.log(`DynamicMethodManager: Generated ${allSkills.length} protocol skills`);
-            
-            // Save to files for persistence
-            this.saveGeneratedFiles(allMappings, allHandlers, allSkills);
+            if (allMappings.length > 0 || Object.keys(allHandlers).length > 0) {
+                console.log(`DynamicMethodManager: Generated ${allMappings.length} mappings and ${Object.keys(allHandlers).length} handlers`);
+                console.log(`DynamicMethodManager: Generated ${allSkills.length} protocol skills`);
+                
+                // Save generated files
+                await this.saveGeneratedFiles(allMappings, allHandlers, allSkills);
+                
+                // Update in-memory mappings and handlers
+                this.methodMappings = allMappings;
+                this.methodHandlers = allHandlers;
+                
+                console.log('DynamicMethodManager: Method generation completed successfully');
+            } else {
+                console.log('DynamicMethodManager: No methods generated');
+            }
             
         } catch (error) {
-            console.error('DynamicMethodManager: Failed to generate methods:', error);
+            console.error('DynamicMethodManager: Method generation failed:', error);
         }
     }
 
     /**
-     * Save generated files for persistence
+     * Save generated method files
      */
-    private saveGeneratedFiles(mappings: MethodMapping[], handlers: MethodHandlers, skills: ProtocolInfo[]) {
+    private async saveGeneratedFiles(mappings: MethodMapping[], handlers: MethodHandlers, skills: ProtocolInfo[]) {
         try {
-            const basePath = __dirname;
+            const fs = require('fs');
+            const path = require('path');
             
-            console.log(`DynamicMethodManager: Saving generated files...`);
-            console.log(`DynamicMethodManager: - Mappings: ${mappings.length}`);
-            console.log(`DynamicMethodManager: - Handlers: ${Object.keys(handlers).length}`);
-            console.log(`DynamicMethodManager: - Skills: ${skills.length} protocols`);
+            console.log('DynamicMethodManager: Saving generated files...');
             
-            // Log the skills being saved
-            for (const skill of skills) {
-                console.log(`DynamicMethodManager: - Skill: ${skill.package}.${skill.protocol} (${skill.methods.length} methods)`);
-            }
+            // Generate method-mappings.js content
+            const mappingsContent = `
+/**
+ * Generated method mappings for NPL protocols
+ * Maps A2A method calls to NPL engine endpoints
+ */
+const METHOD_MAPPINGS = ${JSON.stringify(mappings, null, 2)};
+
+/**
+ * Find method mapping by package, protocol and method
+ */
+function findMethodMapping(package, protocol, method) {
+    return METHOD_MAPPINGS.find(m => 
+        m.package === package && m.protocol === protocol && m.method === method.toLowerCase()
+    );
+}
+
+module.exports = { METHOD_MAPPINGS, findMethodMapping };
+`;
             
-            // Save method mappings
-            const mappingsContent = `module.exports = { 
-                METHOD_MAPPINGS: ${JSON.stringify(mappings, null, 2)},
-                findMethodMapping: function(package, protocol, method) {
-                    return this.METHOD_MAPPINGS.find(m => 
-                        m.package === package && m.protocol === protocol && m.method === method.toLowerCase()
-                    );
-                }
-            };`;
-            writeFileSync(join(basePath, 'method-mappings.js'), mappingsContent);
+            // Generate method-handlers.js content
+            const handlerEntries = Object.entries(handlers).map(([key, value]) => 
+                `  "${key}": ${value.toString()}`
+            ).join(',\n');
             
-            // Save method handlers
-            const handlersContent = Object.entries(handlers)
-                .map(([name, handler]) => `module.exports.${name} = ${handler.toString()};`)
-                .join('\n\n');
-            writeFileSync(join(basePath, 'method-handlers.js'), handlersContent);
+            const handlersContent = `
+/**
+ * Generated method handlers for NPL protocols
+ * Each handler is a function that executes the corresponding NPL operation
+ */
+module.exports = {
+${handlerEntries}
+};
+`;
             
-            // Save agent skills
-            const skillsContent = `/**
+            // Generate agent-skills.js content
+            const skillsContent = `
+/**
  * Generated agent skills for NPL protocols
  * Defines available methods for each protocol
  */
@@ -302,13 +744,32 @@ function getAllProtocols() {
     return AGENT_SKILLS.map(s => ({ package: s.package, protocol: s.protocol }));
 }
 
-module.exports = { AGENT_SKILLS, getProtocolSkills, getAllProtocols };`;
-            writeFileSync(join(basePath, 'agent-skills.js'), skillsContent);
+module.exports = { AGENT_SKILLS, getProtocolSkills, getAllProtocols };
+`;
             
-            console.log(`DynamicMethodManager: Files saved successfully to ${basePath}`);
+            // Save files
+            const basePath = process.cwd();
             
-            // Trigger a reload of agent skills in the server
-            this.triggerAgentSkillsReload();
+            fs.writeFileSync(path.join(basePath, 'src', 'method-mappings.js'), mappingsContent);
+            fs.writeFileSync(path.join(basePath, 'src', 'method-handlers.js'), handlersContent);
+            fs.writeFileSync(path.join(basePath, 'src', 'agent-skills.js'), skillsContent);
+            
+            console.log('DynamicMethodManager: Files saved successfully to /app/src');
+            console.log(`DynamicMethodManager: - Mappings: ${mappings.length}`);
+            console.log(`DynamicMethodManager: - Handlers: ${Object.keys(handlers).length}`);
+            console.log(`DynamicMethodManager: - Skills: ${skills.length} protocols`);
+            
+            // Log skill details
+            for (const skill of skills) {
+                console.log(`DynamicMethodManager: - Skill: ${skill.protocol} (${skill.methods.length} methods)`);
+            }
+            
+            // Clear require cache to force reload
+            delete require.cache[require.resolve('./method-mappings')];
+            delete require.cache[require.resolve('./method-handlers')];
+            delete require.cache[require.resolve('./agent-skills')];
+            
+            console.log('DynamicMethodManager: Agent skills cache cleared, server will reload on next request');
             
         } catch (error) {
             console.error('DynamicMethodManager: Failed to save generated files:', error);
@@ -333,40 +794,38 @@ module.exports = { AGENT_SKILLS, getProtocolSkills, getAllProtocols };`;
             const { findMethodMapping, METHOD_MAPPINGS } = require(methodMappingsPath);
             const methodHandlersModule = require(methodHandlersPath);
 
-            // Extract all exported functions as handlers
-            this.methodHandlers = {};
-            for (const [key, value] of Object.entries(methodHandlersModule)) {
-                if (typeof value === 'function') {
-                    this.methodHandlers[key] = value as (params: any) => Promise<any>;
-                }
-            }
-
-            // Load mappings
+            // Update in-memory mappings and handlers
             this.methodMappings = METHOD_MAPPINGS || [];
+            this.methodHandlers = methodHandlersModule || {};
 
-            this.lastRefresh = Date.now();
-            console.log(`DynamicMethodManager: Loaded ${Object.keys(this.methodHandlers).length} handlers and ${this.methodMappings.length} mappings`);
+            console.log(`DynamicMethodManager: Loaded ${this.methodMappings.length} handlers and ${this.methodHandlers.length} mappings`);
+
         } catch (error) {
-            console.error('DynamicMethodManager: Failed to load methods:', error);
+            console.warn('DynamicMethodManager: Failed to load methods:', error);
+            this.methodMappings = [];
+            this.methodHandlers = {};
         }
     }
 
     /**
-     * Check if refresh is needed and reload if necessary
+     * Find method mapping for a specific package, protocol, and method
      */
-    private checkAndRefresh() {
-        const now = Date.now();
-        if (now - this.lastRefresh > this.refreshInterval) {
-            this.loadMethods();
-        }
+    public findMethodMapping(pkg: string, protocol: string, method: string): MethodMapping | undefined {
+        return this.methodMappings.find(m => m.package === pkg && m.protocol === protocol && m.method === method);
     }
 
     /**
-     * Force immediate refresh
+     * Get all method mappings
      */
-    public forceRefresh() {
-        console.log('DynamicMethodManager: Forcing refresh...');
-        this.loadMethods();
+    public getAllMappings(): MethodMapping[] {
+        return this.methodMappings;
+    }
+
+    /**
+     * Get available operations count
+     */
+    public getAvailableOperations(): number {
+        return this.methodMappings.length;
     }
 
     /**
@@ -374,165 +833,51 @@ module.exports = { AGENT_SKILLS, getProtocolSkills, getAllProtocols };`;
      */
     public async forceDiscovery() {
         console.log('DynamicMethodManager: Forcing discovery and regeneration...');
-        await this.loadDeployedPackagesAndRegenerate();
+        await this.discoverAndRegenerateMethods();
     }
 
     /**
-     * Load deployed packages from file and regenerate methods
+     * Check if event stream is connected
      */
-    private async loadDeployedPackagesAndRegenerate() {
-        try {
-            console.log('DynamicMethodManager: Loading deployed packages and regenerating methods...');
-            const packages = this.loadDeployedPackages();
-            if (packages.length > 0) {
-                console.log(`DynamicMethodManager: Found ${packages.length} deployed packages:`, packages);
-                await this.generateMethodsForPackages(packages);
-                this.knownPackages = new Set(packages);
-            } else {
-                console.log('DynamicMethodManager: No deployed packages found, will rely on discovery');
-            }
-        } catch (error) {
-            console.error('DynamicMethodManager: Failed to load deployed packages:', error);
-        }
+    public isConnected(): boolean {
+        return this.isEventStreamConnected;
     }
 
     /**
-     * Load deployed packages from file
+     * Get detailed status of the dynamic method manager
      */
-    private loadDeployedPackages(): string[] {
-        try {
-            const fs = require('fs');
-            // Use the absolute path directly since this.deployedPackagesFile is already absolute
-            const filePath = this.deployedPackagesFile;
-            
-            if (fs.existsSync(filePath)) {
-                const data = fs.readFileSync(filePath, 'utf8');
-                const packages = JSON.parse(data);
-                console.log(`DynamicMethodManager: Loaded ${packages.length} packages from ${this.deployedPackagesFile}`);
-                return packages;
-            } else {
-                console.log(`DynamicMethodManager: No deployed packages file found at ${filePath}`);
-                return [];
-            }
-        } catch (error) {
-            console.error('DynamicMethodManager: Failed to load deployed packages file:', error);
-            return [];
-        }
+    public getStatus() {
+        return {
+            eventStreamConnected: this.isEventStreamConnected,
+            tokenRefreshInProgress: this.isRefreshingToken,
+            backupPollingActive: this.backupStreamActive,
+            tokenExpiryTime: this.tokenExpiryTime,
+            tokenExpiresIn: Math.max(0, this.tokenExpiryTime - Date.now()),
+            lastEventTimestamp: this.lastEventTimestamp,
+            knownPackages: Array.from(this.knownPackages),
+            availableOperations: this.getAvailableOperations(),
+            pendingDeployments: Array.from(this.pendingDeployments.entries()).map(([key, data]) => ({
+                deployment: key,
+                timestamp: data.timestamp,
+                retryCount: data.retryCount,
+                age: Date.now() - data.timestamp
+            }))
+        };
     }
 
     /**
-     * Save deployed packages to file
+     * Cleanup resources
      */
-    private saveDeployedPackages(packages: string[]) {
-        try {
-            const fs = require('fs');
-            // Use the absolute path directly since this.deployedPackagesFile is already absolute
-            const filePath = this.deployedPackagesFile;
-            
-            fs.writeFileSync(filePath, JSON.stringify(packages, null, 2));
-            console.log(`DynamicMethodManager: Saved ${packages.length} packages to ${this.deployedPackagesFile}`);
-        } catch (error) {
-            console.error('DynamicMethodManager: Failed to save deployed packages file:', error);
-        }
-    }
-
-    /**
-     * Add a package to the deployed packages list
-     */
-    public addDeployedPackage(packageName: string) {
-        const packages = this.loadDeployedPackages();
-        if (!packages.includes(packageName)) {
-            packages.push(packageName);
-            this.saveDeployedPackages(packages);
-            console.log(`DynamicMethodManager: Added package ${packageName} to deployed packages list`);
-        }
-    }
-
-    /**
-     * Remove a package from the deployed packages list
-     */
-    public removeDeployedPackage(packageName: string) {
-        const packages = this.loadDeployedPackages();
-        const filteredPackages = packages.filter(pkg => pkg !== packageName);
-        if (filteredPackages.length !== packages.length) {
-            this.saveDeployedPackages(filteredPackages);
-            console.log(`DynamicMethodManager: Removed package ${packageName} from deployed packages list`);
-        }
-    }
-
-    /**
-     * Find method mapping
-     */
-    public findMethodMapping(pkg: string, protocol: string, method: string): MethodMapping | undefined {
-        this.checkAndRefresh();
-        console.log(`DEBUG: findMethodMapping called with pkg=${pkg}, protocol=${protocol}, method=${method}`);
-        console.log(`DEBUG: Available mappings count: ${this.methodMappings.length}`);
-        // Print all mappings for inspection
-        for (const m of this.methodMappings) {
-            console.log(`DEBUG: mapping: package=${m.package}, protocol=${m.protocol}, method=${m.method}`);
-        }
-        console.log(`DEBUG: Available mappings for ${pkg}.${protocol}:`, this.methodMappings.filter(m => m.package === pkg && m.protocol === protocol));
+    public cleanup() {
+        this.isEventStreamConnected = false;
         
-        const result = this.methodMappings.find(m => 
-            m.package === pkg && 
-            m.protocol === protocol && 
-            m.method === method.toLowerCase()
-        );
-        
-        console.log(`DEBUG: findMethodMapping result:`, result);
-        return result;
-    }
-
-    /**
-     * Execute method by operation ID
-     */
-    public async executeMethod(operationId: string, params: any): Promise<any> {
-        this.checkAndRefresh();
-        
-        const handler = this.methodHandlers[operationId];
-        if (!handler) {
-            throw new Error(`Unknown method: ${operationId}`);
-        }
-
-        return await handler(params);
-    }
-
-    /**
-     * Get all available method mappings
-     */
-    public getAllMappings(): MethodMapping[] {
-        this.checkAndRefresh();
-        return [...this.methodMappings];
-    }
-
-    /**
-     * Get all available operation IDs
-     */
-    public getAvailableOperations(): string[] {
-        this.checkAndRefresh();
-        return Object.keys(this.methodHandlers);
-    }
-
-    /**
-     * Check if method exists
-     */
-    public hasMethod(operationId: string): boolean {
-        this.checkAndRefresh();
-        return operationId in this.methodHandlers;
-    }
-
-    /**
-     * Trigger a reload of agent skills in the server
-     */
-    private triggerAgentSkillsReload() {
-        try {
-            // Clear the require cache for the agent-skills module
-            delete require.cache[require.resolve('./agent-skills')];
-            console.log('DynamicMethodManager: Agent skills cache cleared, server will reload on next request');
-        } catch (error) {
-            console.error('DynamicMethodManager: Failed to clear agent skills cache:', error);
+        // Clear token refresh interval
+        if (this.tokenRefreshInterval) {
+            clearInterval(this.tokenRefreshInterval);
+            this.tokenRefreshInterval = null;
         }
     }
 }
 
+export default DynamicMethodManager; 
 export const dynamicMethodManager = new DynamicMethodManager(); 

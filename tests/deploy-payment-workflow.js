@@ -1,39 +1,16 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { getTechnicalUserToken, updateA2AServerToken, getUserToken } = require('./token-utils');
 
 // Configuration
 const A2A_SERVER_URL = 'http://localhost:8000';
-const KEYCLOAK_URL = 'http://localhost:11000';
-const REALM = 'noumena';
-const CLIENT_ID = 'noumena';
 
 // Test user credentials
 const TEST_USER = {
   username: 'buyer',
   password: 'password123'
 };
-
-async function getAccessToken(username, password) {
-  try {
-    const response = await axios.post(`${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`, 
-      new URLSearchParams({
-        grant_type: 'password',
-        client_id: CLIENT_ID,
-        username: username,
-        password: password
-      }), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-    
-    return response.data.access_token;
-  } catch (error) {
-    console.error(`Failed to get token for ${username}:`, error.response?.data || error.message);
-    throw error;
-  }
-}
 
 /**
  * Deploy Payment Workflow protocol at runtime
@@ -42,10 +19,13 @@ async function deployPaymentWorkflow() {
   console.log('🚀 Deploying Payment Workflow Protocol at Runtime...\n');
 
   try {
-    // Get access token
-    console.log('🔑 Getting access token...');
-    const token = await getAccessToken(TEST_USER.username, TEST_USER.password);
-    console.log('✅ Access token obtained\n');
+    // Update A2A server with fresh technical token first
+    await updateA2AServerToken();
+    
+    // Get technical user token for deployment
+    console.log('🔑 Getting technical user token for deployment...');
+    const token = await getTechnicalUserToken();
+    console.log('✅ Technical user token obtained\n');
 
     // Read the payment workflow protocol file
     const paymentProtocolPath = path.join(__dirname, '../src/main/npl-1.0.0/payment_workflow/order_commitment.npl');
@@ -130,7 +110,7 @@ async function deployPaymentWorkflow() {
       console.log('🔄 Refreshing A2A methods anyway...');
       
       try {
-        const token = await getAccessToken(TEST_USER.username, TEST_USER.password);
+        const token = await getTechnicalUserToken();
         const refreshResponse = await axios.post(`${A2A_SERVER_URL}/a2a/refresh`, {
           token: token
         }, {

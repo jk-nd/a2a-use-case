@@ -16,7 +16,7 @@ const TECHNICAL_USER = {
 
 async function getTechnicalUserToken() {
     try {
-        console.log('🔑 Getting technical user token for A2A server...');
+        console.error('🔑 Getting technical user token for A2A server...');
         
         const response = await axios.post(
             `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
@@ -39,24 +39,19 @@ async function getTechnicalUserToken() {
             throw new Error('No access token received from Keycloak');
         }
 
-        console.log('✅ Technical user token obtained successfully');
-        console.log(`Token: ${token.substring(0, 20)}...`);
-
         // Save token to file
         fs.writeFileSync('.technical-user-token', token);
-        console.log('💾 Token saved to .technical-user-token');
-
+        
         // Set environment variable
         process.env.NPL_TECHNICAL_USER_TOKEN = token;
-        console.log('📋 Environment variable set:');
-        console.log(`   NPL_TECHNICAL_USER_TOKEN=${token.substring(0, 20)}...`);
 
-        console.log('');
-        console.log('🚀 You can now start the A2A server with:');
-        console.log(`   NPL_TECHNICAL_USER_TOKEN=${token} docker-compose up a2a-server`);
-        console.log('');
-        console.log('   Or source this script and run:');
-        console.log('   source <(node scripts/get-technical-token.js) && docker-compose up a2a-server');
+        // Log to stderr so stdout only contains the token
+        console.error('✅ Technical user token obtained successfully');
+        console.error(`💾 Token saved to .technical-user-token`);
+        console.error('📋 Environment variable set');
+        
+        // Output token to stdout for shell script capture
+        console.log(token);
 
         return token;
 
