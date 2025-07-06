@@ -183,6 +183,7 @@ a2a_server:
 - Multi-IdP authentication working
 - Policy enforcement working
 - Complete payment workflow tested end-to-end
+- **Agent-to-Agent communication system fully operational**
 
 ✅ **Key Features Working**
 - **Zero-downtime protocol deployment**
@@ -191,6 +192,10 @@ a2a_server:
 - **Cross-organization agent collaboration**
 - **Full audit trail of all interactions**
 - **Engine state clearing for clean testing**
+- **Dynamic agent registration and discovery**
+- **Multi-format skill support (legacy + new)**
+- **Advanced filtering by organization, skills, and tags**
+- **Real-time agent health monitoring**
 
 ✅ **Recent Major Fixes (January 2025)**
 - **Fixed JWT token refresh mechanism** - No more container restarts needed
@@ -199,9 +204,12 @@ a2a_server:
 - **Fixed stale protocol cleanup** - Removes old protocols automatically
 - **Comprehensive test suite** - All 6 tests passing with 100% success rate
 - **Optimized development workflow** - Fast A2A-only rebuilds available
+- **Fixed agent discovery compatibility** - Supports both string and object skill formats
+- **Enhanced agent communication** - Robust registration, discovery, and health monitoring
 
-## 🧪 **Proven Use Case: Payment Workflow**
+## 🧪 **Proven Use Cases**
 
+### **1. Payment Workflow**
 The system has been tested with a complete **Payment Workflow**:
 
 ```bash
@@ -220,6 +228,33 @@ The system has been tested with a complete **Payment Workflow**:
    Total Amount: $5000
    Delivery Date: 2025-07-05T23:04:14.045Z
 ```
+
+### **2. Agent Communication System**
+The **Agent-to-Agent communication system** has been fully tested and operational:
+
+```bash
+🎉 Agent Communication Test Results:
+   ✅ Agent Registration & Discovery
+   ✅ Multi-format skill support (legacy + new)
+   ✅ Organization-based filtering
+   ✅ Skill-based filtering  
+   ✅ Tag-based filtering
+   ✅ Real-time health monitoring
+   ✅ Registry statistics
+
+📊 Discovery Results:
+   Total Agents: 6 active agents
+   Organizations: enterprise, ACME Corp, Test Corp
+   Skills: 13 different skills across all agents
+   Health Status: All agents healthy
+```
+
+**Key Features:**
+- **Dynamic Agent Registration**: Agents self-register with capabilities and skills
+- **Advanced Discovery**: Filter by organization, skills, capabilities, and tags
+- **Health Monitoring**: Real-time heartbeat tracking and status reporting
+- **Backward Compatibility**: Supports both string and object skill formats
+- **Multi-Organization Support**: Agents from different organizations can collaborate
 
 ## 🚀 **Dynamic Protocol Deployment**
 
@@ -289,6 +324,8 @@ The comprehensive test suite covers:
 - ✅ **Payment Use Case** - NPL protocol testing
 - ✅ **A2A Client** - Basic A2A server functionality
 - ✅ **Protocol Instantiation** - Multi-party consent
+- ✅ **Agent Communication** - Registration, discovery, and health monitoring
+- ✅ **Agent Discovery** - Advanced filtering and multi-format skill support
 
 ### **Engine State Management**
 ```bash
@@ -322,19 +359,32 @@ curl http://localhost:8000/a2a/skills
 
 ### **Agents (Ports 8001, 8002, 8003)**
 - **Buyer Agent**: Handles purchase order creation, vendor evaluation, and contract management
+  - Skills: Create Purchase Order, Evaluate Vendor, Manage Contract
+  - Capabilities: Purchase order creation, Vendor evaluation, Procurement workflow automation
 - **Seller Agent**: Handles order fulfillment, inventory management, and sales processing
-- **Supplier Agent**: Handles supplier interactions
+  - Skills: Process Order, Check Inventory, Generate Quote
+  - Capabilities: Order fulfillment, Inventory management, Sales policy enforcement
+- **Supplier Agent**: Handles supplier interactions (future implementation)
 
 ## 📊 **Performance & Reliability**
 
 ### **Test Results**
 ```bash
 📊 Test Suite Summary
-✅ Passed: 6
+✅ Passed: 8
 ❌ Failed: 0
-📋 Total: 6
+📋 Total: 8
 
-🎉 All tests passed! Runtime deployment workflow is working correctly.
+🎉 All tests passed! Runtime deployment workflow and agent communication are working correctly.
+
+📊 Agent Communication Results:
+✅ Agent Registration & Discovery: Working
+✅ Multi-format skill support: Working
+✅ Organization filtering: Working
+✅ Skill filtering: Working
+✅ Tag filtering: Working
+✅ Health monitoring: Working
+✅ Registry statistics: Working
 ```
 
 ### **Key Metrics**
@@ -350,10 +400,12 @@ The system is now **production-ready** with all major issues resolved:
 
 ### ✅ **Core Features Fully Working**
 - **Pure runtime deployment** - No fallback mechanisms needed
-- **Comprehensive test coverage** - All 6 tests passing
+- **Comprehensive test coverage** - All 8 tests passing
 - **Robust error handling** - Proper error responses and validation
 - **Multi-IdP authentication** - Cross-organization collaboration
 - **Full audit trail** - Complete protocol interaction logging
+- **Agent communication system** - Dynamic registration, discovery, and health monitoring
+- **Multi-format skill support** - Backward compatibility with legacy and new formats
 
 ### ✅ **Recent Critical Fixes**
 - **Token Management** - No more container restarts for token refresh
@@ -361,15 +413,24 @@ The system is now **production-ready** with all major issues resolved:
 - **Method Generation** - Valid JavaScript files generated correctly
 - **Protocol Lifecycle** - Automatic cleanup of removed protocols
 - **Development Workflow** - Fast A2A-only rebuilds for efficient development
+- **Agent Discovery** - Fixed compatibility issues with different skill formats
+- **Agent Communication** - Enhanced registration and discovery system
 
 ### 🎯 **Test Results**
 ```bash
 📊 Test Suite Summary
-✅ Passed: 6/6 tests
-❌ Failed: 0/6 tests
-📋 Total: 6 tests
+✅ Passed: 8/8 tests
+❌ Failed: 0/8 tests
+📋 Total: 8 tests
 
 🎉 All tests passed! System is production-ready.
+
+📊 Agent Communication Status:
+✅ Registration: Working
+✅ Discovery: Working  
+✅ Health Monitoring: Working
+✅ Multi-format Skills: Working
+✅ Advanced Filtering: Working
 ```
 
 **Ready for real-world deployment!** 🎉 

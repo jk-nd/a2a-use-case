@@ -133,7 +133,16 @@ export class AgentRegistry {
       // Filter by skills
       if (request.skills && request.skills.length > 0) {
         filteredAgents = filteredAgents.filter(agent => {
-          const agentSkills = agent.skills.map(skill => skill.name.toLowerCase());
+          const agentSkills = agent.skills.map((skill: any) => {
+            // Handle both string and object skill formats
+            if (typeof skill === 'string') {
+              return skill.toLowerCase();
+            } else if (skill && typeof skill === 'object' && skill.name) {
+              return skill.name.toLowerCase();
+            }
+            return '';
+          }).filter(skill => skill !== '');
+          
           return request.skills!.some(skill => 
             agentSkills.some(agentSkill => 
               agentSkill.includes(skill.toLowerCase())
@@ -145,7 +154,16 @@ export class AgentRegistry {
       // Filter by tags
       if (request.tags && request.tags.length > 0) {
         filteredAgents = filteredAgents.filter(agent => {
-          const agentTags = agent.skills.flatMap(skill => skill.tags);
+          const agentTags = agent.skills.flatMap((skill: any) => {
+            // Handle both string and object skill formats
+            if (typeof skill === 'string') {
+              return []; // String skills don't have tags
+            } else if (skill && typeof skill === 'object' && skill.tags) {
+              return skill.tags;
+            }
+            return [];
+          });
+          
           return request.tags!.some(tag => 
             agentTags.some(agentTag => 
               agentTag.toLowerCase().includes(tag.toLowerCase())
@@ -235,7 +253,14 @@ export class AgentRegistry {
     const inactiveAgents = agents.filter(a => a.status !== 'active');
     
     const organizations = [...new Set(agents.map(a => a.organization))];
-    const skills = [...new Set(agents.flatMap(a => a.skills.map(s => s.name)))];
+    const skills = [...new Set(agents.flatMap(a => a.skills.map((s: any) => {
+      if (typeof s === 'string') {
+        return s;
+      } else if (s && typeof s === 'object' && s.name) {
+        return s.name;
+      }
+      return '';
+    }).filter(s => s !== '')))];
 
     return {
       totalAgents: agents.length,

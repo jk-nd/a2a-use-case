@@ -16,63 +16,85 @@ async function testAgentCommunication() {
         // Test 1: Register agents
         console.log('📝 Test 1: Agent Registration');
         const agent1 = await registerAgent({
-            name: 'Procurement Agent',
-            description: 'Handles procurement processes and vendor management',
+            name: 'Buyer Agent',
+            description: 'Handles purchase order creation, vendor evaluation, and contract management',
             url: 'http://localhost:8001',
-            transport: 'JSONRPC',
+            transport: 'http',
             organization: 'ACME Corp',
             version: '1.0.0',
-            capabilities: {
-                streaming: true,
-                pushNotifications: true,
-                stateTransitionHistory: true
-            },
+            capabilities: [
+                'Purchase order creation and management',
+                'Vendor evaluation and selection',
+                'Procurement workflow automation',
+                'Policy enforcement',
+                'Budget integration',
+                'Contract negotiation'
+            ],
             skills: [
                 {
-                    id: 'procurement-management',
-                    name: 'Procurement Management',
-                    description: 'Manage procurement workflows and vendor relationships',
-                    tags: ['procurement', 'vendor', 'workflow'],
-                    examples: ['Create purchase order', 'Approve vendor invoice']
+                    id: 'buyer.create_purchase_order',
+                    name: 'Create Purchase Order',
+                    description: 'Create and manage purchase orders',
+                    tags: ['buyer', 'procurement', 'purchase', 'order'],
+                    examples: ['Create PO for office supplies', 'Submit vendor order']
                 },
                 {
-                    id: 'payment-processing',
-                    name: 'Payment Processing',
-                    description: 'Process payments and financial transactions',
-                    tags: ['payment', 'finance', 'transaction'],
-                    examples: ['Process payment', 'Generate invoice']
+                    id: 'buyer.evaluate_vendor',
+                    name: 'Evaluate Vendor',
+                    description: 'Evaluate and select vendors',
+                    tags: ['buyer', 'vendor', 'evaluation', 'selection'],
+                    examples: ['Assess vendor performance', 'Compare vendor quotes']
+                },
+                {
+                    id: 'buyer.manage_contract',
+                    name: 'Manage Contract',
+                    description: 'Manage vendor contracts and agreements',
+                    tags: ['buyer', 'contract', 'agreement', 'legal'],
+                    examples: ['Review contract terms', 'Negotiate pricing']
                 }
-            ]
+            ],
+            tags: ['buyer', 'procurement', 'purchase', 'vendor', 'enterprise']
         });
         
         const agent2 = await registerAgent({
-            name: 'Finance Agent',
-            description: 'Handles financial operations and accounting',
+            name: 'Seller Agent',
+            description: 'Handles order fulfillment, inventory management, and sales processing',
             url: 'http://localhost:8002',
-            transport: 'JSONRPC',
+            transport: 'http',
             organization: 'ACME Corp',
             version: '1.0.0',
-            capabilities: {
-                streaming: true,
-                pushNotifications: false,
-                stateTransitionHistory: true
-            },
+            capabilities: [
+                'Order fulfillment and processing',
+                'Inventory management',
+                'Sales policy enforcement',
+                'Pricing and quotation',
+                'Delivery coordination',
+                'Customer relationship management'
+            ],
             skills: [
                 {
-                    id: 'financial-analysis',
-                    name: 'Financial Analysis',
-                    description: 'Analyze financial data and generate reports',
-                    tags: ['finance', 'analysis', 'reporting'],
-                    examples: ['Generate financial report', 'Analyze spending patterns']
+                    id: 'seller.process_order',
+                    name: 'Process Order',
+                    description: 'Process and fulfill customer orders',
+                    tags: ['seller', 'order', 'fulfillment', 'processing'],
+                    examples: ['Process customer order', 'Update order status']
                 },
                 {
-                    id: 'budget-management',
-                    name: 'Budget Management',
-                    description: 'Manage budgets and financial planning',
-                    tags: ['budget', 'planning', 'finance'],
-                    examples: ['Create budget plan', 'Track expenses']
+                    id: 'seller.check_inventory',
+                    name: 'Check Inventory',
+                    description: 'Check and manage inventory levels',
+                    tags: ['seller', 'inventory', 'stock', 'availability'],
+                    examples: ['Check stock levels', 'Update inventory']
+                },
+                {
+                    id: 'seller.generate_quote',
+                    name: 'Generate Quote',
+                    description: 'Generate pricing quotes for customers',
+                    tags: ['seller', 'quote', 'pricing', 'sales'],
+                    examples: ['Create customer quote', 'Calculate pricing']
                 }
-            ]
+            ],
+            tags: ['seller', 'sales', 'fulfillment', 'inventory', 'enterprise']
         });
         
         console.log(`✅ Agent 1 registered: ${agent1.agentId}`);
@@ -88,8 +110,8 @@ async function testAgentCommunication() {
         console.log(`✅ Found ${orgDiscovery.total} agents in ACME Corp`);
         
         // Test by skills
-        const skillDiscovery = await discoverAgents({ skills: ['finance'] });
-        console.log(`✅ Found ${skillDiscovery.total} agents with finance skills\n`);
+        const skillDiscovery = await discoverAgents({ skills: ['Process Order'] });
+        console.log(`✅ Found ${skillDiscovery.total} agents with seller skills\n`);
         
         // Test 3: Agent Health Check
         console.log('❤️  Test 3: Agent Health Check');
@@ -106,8 +128,8 @@ async function testAgentCommunication() {
             toAgentId: agent2.agentId,
             type: 'notification',
             content: {
-                type: 'procurement_update',
-                message: 'New purchase order requires financial approval',
+                type: 'purchase_order_created',
+                message: 'New purchase order created, awaiting seller confirmation',
                 orderId: 'PO-2025-001',
                 amount: 5000,
                 vendor: 'TechCorp Solutions'
@@ -133,17 +155,17 @@ async function testAgentCommunication() {
             targetAgentId: agent2.agentId,
             type: 'workflow',
             details: {
-                name: 'Purchase Order Approval Workflow',
+                name: 'Purchase Order Fulfillment Workflow',
                 parameters: {
                     orderId: 'PO-2025-001',
                     amount: 5000,
                     vendor: 'TechCorp Solutions',
-                    approvalThreshold: 1000
+                    deliveryDate: '2025-02-15T10:00:00Z'
                 },
                 expectedOutcomes: [
-                    'Financial approval obtained',
-                    'Budget allocation confirmed',
-                    'Payment authorized'
+                    'Order confirmed by seller',
+                    'Inventory availability confirmed',
+                    'Delivery scheduled'
                 ]
             }
         });
