@@ -99,21 +99,41 @@ apply_terraform() {
     log "Applying Terraform changes..."
     cd "$TERRAFORM_DIR"
     
-    # First, destroy any existing resources to ensure clean state
-    log "Destroying any existing resources..."
-    if terraform destroy -auto-approve; then
-        success "Existing resources destroyed successfully"
-    else
-        warning "No existing resources to destroy or destroy failed (continuing anyway)"
+    # Check if realm already exists
+    if curl -s "$KEYCLOAK_URL/realms/noumena" > /dev/null 2>&1; then
+        log "Realm 'noumena' already exists, importing existing resources..."
+        
+        # Import existing realm
+        if terraform import keycloak_realm.noumena noumena; then
+            success "Existing realm imported successfully"
+        else
+            warning "Failed to import existing realm (continuing anyway)"
+        fi
+        
+        # Try to import existing clients if they exist
+        local admin_token=$(curl -s -X POST "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            -d 'username=admin&password=admin&grant_type=password&client_id=admin-cli' \
+            | jq -r '.access_token')
+        
+        if [ "$admin_token" != "null" ] && [ -n "$admin_token" ]; then
+            # Try to import a2a-service client
+            local client_id=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/noumena/clients" \
+                -H "Authorization: Bearer $admin_token" \
+                | jq -r '.[] | select(.clientId == "a2a-service") | .id')
+            
+            if [ "$client_id" != "null" ] && [ -n "$client_id" ]; then
+                if terraform import keycloak_openid_client.a2a_service "$client_id"; then
+                    success "Existing a2a-service client imported successfully"
+                else
+                    warning "Failed to import existing a2a-service client (continuing anyway)"
+                fi
+            fi
+        fi
     fi
     
-    # Regenerate plan after destroy to ensure it's current
-    log "Regenerating Terraform plan after destroy..."
-    if ! terraform plan -out tfplan; then
-        error "Failed to regenerate Terraform plan"
-    fi
-    
-    if ! terraform apply tfplan; then
+    # Apply changes (this will create missing resources and update existing ones)
+    if ! terraform apply -auto-approve; then
         error "Terraform apply failed"
     fi
     

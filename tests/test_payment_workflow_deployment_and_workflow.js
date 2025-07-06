@@ -15,14 +15,14 @@ const config = {
                 email: 'buyer@company.com',
                 firstName: 'John',
                 lastName: 'Buyer',
-                password: 'password123'
+                password: 'Buyer123!'
             },
             {
                 username: 'finance_manager',
                 email: 'finance@company.com',
                 firstName: 'Mike',
                 lastName: 'Finance',
-                password: 'password123'
+                password: 'FinanceManager123!'
             }
         ]
     }

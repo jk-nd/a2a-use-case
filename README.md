@@ -198,6 +198,8 @@ a2a_server:
 - **Real-time agent health monitoring**
 
 ✅ **Recent Major Fixes (July 2025)**
+- **Fixed technical user credentials** - Resolved authentication issues with correct user passwords and TokenManager integration
+- **Enhanced DynamicMethodManager** - Updated to use TokenManager for reliable authentication instead of hardcoded credentials
 - **Fixed Keycloak health check** - Replaced curl with TCP connection test for reliable health monitoring
 - **Fixed build script shell errors** - Resolved local variable declaration issues
 - **Enhanced Terraform provisioning** - Robust Keycloak provisioning with automatic retry and cleanup
@@ -229,13 +231,16 @@ The system has been tested with a complete **Payment Workflow**:
    ✅ Policy enforcement working
    ✅ Cross-agent communication working
    ✅ Full audit trail maintained
+   ✅ Technical user authentication working
+   ✅ Token management integrated
 
 📊 Final State:
-   Order ID: 178ae0d7-8591-4a73-a1b0-e3f29d241b0a
+   Order ID: 6ca974ce-be09-4892-af87-e7ebbeeab434
    Protocol ID: payment_workflow.OrderCommitment
    Final State: completed
    Total Amount: $5000
-   Delivery Date: 2025-07-05T23:04:14.045Z
+   Delivery Date: 2025-07-06T17:08:16.107Z
+   Authentication: TokenManager + DynamicMethodManager integration
 ```
 
 ### **2. Agent-to-Agent Communication System**
@@ -515,6 +520,8 @@ The system is now **production-ready** with all major issues resolved:
 - **Multi-format skill support** - Backward compatibility with legacy and new formats
 
 ### ✅ **Recent Critical Fixes**
+- **Technical User Authentication** - Fixed credential issues and integrated TokenManager with DynamicMethodManager
+- **User Password Management** - Corrected test credentials to match Terraform-provisioned user passwords
 - **Keycloak Health Monitoring** - Fixed health checks using TCP connection tests instead of curl
 - **Build Script Reliability** - Fixed shell script errors and improved error handling
 - **Terraform Provisioning** - Enhanced with automatic cleanup and retry mechanisms

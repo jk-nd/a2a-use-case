@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { MethodMapping, MethodHandlers, ProtocolInfo } from './types';
+import { tokenManager } from './token-manager';
 
 interface ApiPrototype {
     name: string;
@@ -98,42 +99,31 @@ class DynamicMethodManager {
      */
     private async performTokenRefresh(): Promise<void> {
         try {
-            console.log('DynamicMethodManager: Starting token refresh...');
+            console.log('DynamicMethodManager: Starting token refresh using TokenManager...');
             
-            // Try to get a new technical token from the management API
-            const response = await fetch(`${this.NPL_ENGINE_URL.replace('12000', '12400')}/management/token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    username: 'technical',
-                    password: 'technical'
-                })
-            });
-
-            if (response.ok) {
-                const tokenData = await response.json() as { access_token: string; expires_in?: number };
-                this.currentToken = tokenData.access_token;
-                
-                // Calculate expiry time (default to 15 minutes if not provided)
-                const expiresIn = tokenData.expires_in || 900; // 15 minutes
-                this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
-                
+            // Use the TokenManager to get a valid token
+            const token = await tokenManager.getAccessToken();
+            this.currentToken = token;
+            
+            // Get token info for expiry calculation
+            const tokenInfo = tokenManager.getTokenInfo();
+            if (tokenInfo.expiresAt) {
+                this.tokenExpiryTime = tokenInfo.expiresAt;
+                const expiresIn = Math.floor((tokenInfo.expiresAt - Date.now()) / 1000);
                 console.log(`DynamicMethodManager: Token refreshed successfully, expires in ${expiresIn} seconds`);
-                
-                // If we're connected to event stream, reconnect with new token
-                if (this.isEventStreamConnected) {
-                    console.log('DynamicMethodManager: Reconnecting event stream with new token...');
-                    this.isEventStreamConnected = false;
-                    setTimeout(() => {
-                        this.subscribeToPrototypeStream();
-                    }, 1000);
-                }
             } else {
-                console.warn('DynamicMethodManager: Failed to refresh token from management API, using fallback');
-                this.currentToken = this.TECHNICAL_USER_TOKEN || this.NPL_TOKEN;
+                // Fallback expiry calculation
                 this.tokenExpiryTime = Date.now() + (15 * 60 * 1000); // Assume 15 minutes
+                console.log('DynamicMethodManager: Token refreshed successfully (fallback expiry)');
+            }
+            
+            // If we're connected to event stream, reconnect with new token
+            if (this.isEventStreamConnected) {
+                console.log('DynamicMethodManager: Reconnecting event stream with new token...');
+                this.isEventStreamConnected = false;
+                setTimeout(() => {
+                    this.subscribeToPrototypeStream();
+                }, 1000);
             }
         } catch (error) {
             console.warn('DynamicMethodManager: Token refresh failed, using fallback:', error);
