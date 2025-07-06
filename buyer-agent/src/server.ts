@@ -259,7 +259,7 @@ function handleAgentMessage(message: any, res: any, id: any) {
 
   // Generic acknowledgment/echo (future: AI/skills can process content)
   const response = {
-    status: 'received',
+      status: 'received',
     message: 'Message received',
     echo: message.content,
     timestamp: new Date().toISOString(),

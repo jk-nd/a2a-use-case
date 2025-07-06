@@ -18,7 +18,7 @@ interface ApiAction {
 }
 
 interface ApiNamedArgument {
-    name: string;
+        name: string;
     type: string;
 }
 
@@ -475,9 +475,9 @@ class DynamicMethodManager {
                     }
                 } catch (error) {
                     console.log(`DynamicMethodManager: Package ${pkg} verification failed:`, error instanceof Error ? error.message : String(error));
+                    }
                 }
-            }
-            
+                
             // Also check packages that are currently in knownPackages
             for (const pkg of this.knownPackages) {
                 if (!candidatePackages.includes(pkg)) {
@@ -568,19 +568,19 @@ class DynamicMethodManager {
      * Check if a protocol is deployed by querying the engine
      */
     private async checkIfProtocolDeployed(packageName: string, protocolName: string): Promise<boolean> {
-        try {
+            try {
             const token = this.getValidToken();
             if (!token) return false;
             
             // Try to get the protocol's OpenAPI spec
             const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${packageName}/-/openapi.json`, {
-                headers: {
+                    headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
+                        'Accept': 'application/json'
+                    }
+                });
             
-            if (response.ok) {
+                if (response.ok) {
                 const openAPISpec = await response.json() as { paths?: { [key: string]: any } };
                 // Check if the protocol exists in the OpenAPI spec
                 const protocolPath = `/npl/${packageName}/${protocolName}/`;
@@ -593,7 +593,7 @@ class DynamicMethodManager {
         } catch (error) {
             console.error(`DynamicMethodManager: Error checking if ${packageName}.${protocolName} is deployed:`, error);
             return false;
-        }
+                }
     }
 
     /**
@@ -605,7 +605,7 @@ class DynamicMethodManager {
             console.log(`DynamicMethodManager: Deployment confirmed by event stream: ${deploymentKey}`);
             this.pendingDeployments.delete(deploymentKey);
             return true;
-        }
+            }
         return false;
     }
 
@@ -664,9 +664,9 @@ class DynamicMethodManager {
                 await this.saveGeneratedFiles(allMappings, allHandlers, allSkills);
                 
                 // Update in-memory mappings and handlers
-                this.methodMappings = allMappings;
-                this.methodHandlers = allHandlers;
-                
+            this.methodMappings = allMappings;
+            this.methodHandlers = allHandlers;
+            
                 console.log('DynamicMethodManager: Method generation completed successfully');
             } else {
                 console.log('DynamicMethodManager: No methods generated');
@@ -700,9 +700,9 @@ const METHOD_MAPPINGS = ${JSON.stringify(mappings, null, 2)};
  */
 function findMethodMapping(package, protocol, method) {
     return METHOD_MAPPINGS.find(m => 
-        m.package === package && m.protocol === protocol && m.method === method.toLowerCase()
-    );
-}
+                        m.package === package && m.protocol === protocol && m.method === method.toLowerCase()
+                    );
+                }
 
 module.exports = { METHOD_MAPPINGS, findMethodMapping };
 `;
@@ -742,7 +742,7 @@ function getProtocolSkills(package, protocol) {
  */
 function getAllProtocols() {
     return AGENT_SKILLS.map(s => ({ package: s.package, protocol: s.protocol }));
-}
+                }
 
 module.exports = { AGENT_SKILLS, getProtocolSkills, getAllProtocols };
 `;

@@ -2,6 +2,7 @@
 
 # A2A Service Only Rebuild Script
 # This script rebuilds only the A2A service and related components, leaving NPL engine, Keycloak, etc. intact
+# Now includes proper Terraform provisioning verification
 
 set -e
 
@@ -114,8 +115,6 @@ echo "🤖 Step 8.6: Starting agents..."
 docker-compose up -d buyer-agent seller-agent
 sleep 10
 
-
-
 # Step 10: Verify the deployment endpoints are available
 echo ""
 echo "🔍 Step 10: Verifying deployment endpoints..."
@@ -128,29 +127,17 @@ else
     exit 1
 fi
 
-# Step 11: Get technical user token for A2A server
+# Step 11: Verify Terraform provisioning is available (if Keycloak is running)
 echo ""
-echo "🔑 Step 11: Getting technical user token for A2A server..."
-if [ -f "scripts/get-technical-token.js" ]; then
-    # Get the token and export it to environment (capture stderr to show progress)
-    node scripts/get-technical-token.js >/tmp/technical-token.txt
-    export NPL_TECHNICAL_USER_TOKEN=$(cat /tmp/technical-token.txt)
-    rm -f /tmp/technical-token.txt
-    
-    if [ -z "$NPL_TECHNICAL_USER_TOKEN" ]; then
-        echo "❌ Failed to capture technical user token"
-        exit 1
+echo "🔍 Step 11: Verifying Terraform provisioning status..."
+if docker-compose ps keycloak | grep -q "Up"; then
+    if docker-compose logs keycloak-provisioning 2>/dev/null | grep -q "Keycloak provisioning completed successfully"; then
+        echo "✅ Terraform provisioning completed successfully!"
+    else
+        echo "⚠️  Terraform provisioning may not have completed, but A2A service will handle authentication automatically"
     fi
-    
-    echo "✅ Technical user token obtained and environment variable set!"
-    echo "Token key ID: $(echo $NPL_TECHNICAL_USER_TOKEN | cut -d'.' -f1 | base64 -d 2>/dev/null | jq -r '.kid' 2>/dev/null || echo 'unknown')"
-    
-    # Restart A2A server with new token
-    echo "🔄 Restarting A2A server with new technical token..."
-    NPL_TECHNICAL_USER_TOKEN=$NPL_TECHNICAL_USER_TOKEN docker-compose up -d a2a-server
-    echo "✅ A2A server restarted with updated token!"
 else
-    echo "⚠️  scripts/get-technical-token.js not found, skipping technical token generation"
+    echo "⚠️  Keycloak not running, but A2A service will handle authentication when Keycloak is available"
 fi
 
 cd "$PROJECT_ROOT"
@@ -179,13 +166,14 @@ echo "   A2A Server: http://localhost:8000"
 echo "   Buyer Agent: http://localhost:8001"
 echo "   Seller Agent: http://localhost:8002"
 echo ""
-echo "🔑 Technical user token available in .technical-user-token"
+echo "🔑 A2A service uses automatic token management via TokenManager"
 echo "🧪 Run tests with: cd tests && ./run-tests.sh"
 echo ""
 echo "📝 Rebuild Summary:"
-echo "   ✅ A2A Server rebuilt and running"
+echo "   ✅ A2A Server rebuilt and running with automatic token management"
 echo "   ✅ Buyer Agent rebuilt and running"
 echo "   ✅ Seller Agent rebuilt and running"
 echo "   ✅ NPL Engine, Keycloak, and databases left intact"
+echo "   ✅ Terraform provisioning status verified"
 echo ""
 echo "🚀 Ready for development!" 

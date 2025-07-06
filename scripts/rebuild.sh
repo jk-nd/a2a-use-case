@@ -2,6 +2,7 @@
 
 # Comprehensive A2A Project Rebuild Script
 # This script completely tears down the environment, clears all caches, and rebuilds everything from scratch
+# Now includes robust Terraform-based Keycloak provisioning
 
 set -e
 
@@ -46,7 +47,7 @@ docker network prune -f
 echo "   Clearing all volumes..."
 docker volume prune -f
 echo "   Removing specific project volumes..."
-docker volume rm a2a_engine_db_data a2a_keycloak_db_data a2a_postgres_data 2>/dev/null || echo "Some volumes may not exist"
+docker volume rm a2a_engine_db_data a2a_keycloak_db_data a2a_postgres_data terraform-state 2>/dev/null || echo "Some volumes may not exist"
 
 # Step 4: Clear npm caches
 echo ""
@@ -104,42 +105,77 @@ docker-compose build --no-cache
 
 echo "✅ All Docker images built successfully!"
 
-# Step 8: Start core services first (A2A server, engine, keycloak)
+# Step 8: Start core services first (databases, keycloak, engine)
 echo ""
 echo "🚀 Step 8: Starting core services..."
 docker-compose up -d engine-db keycloak-db
 sleep 10
 docker-compose up -d keycloak engine
 sleep 15
+
+# Step 9: Wait for Keycloak to be ready before starting provisioning
+echo ""
+echo "🔑 Step 9: Waiting for Keycloak to be ready..."
+until curl -s http://localhost:11000/realms/master > /dev/null 2>&1; do
+    echo "   Waiting for Keycloak..."
+    sleep 5
+done
+echo "✅ Keycloak is ready!"
+
+# Step 10: Start Terraform provisioning
+echo ""
+echo "🔧 Step 10: Starting Terraform provisioning..."
+docker-compose up -d keycloak-provisioning
+
+# Step 11: Wait for Terraform provisioning to complete
+echo ""
+echo "⏳ Step 11: Waiting for Terraform provisioning..."
+local max_attempts=30
+local attempt=1
+while [ $attempt -le $max_attempts ]; do
+    if docker-compose logs keycloak-provisioning 2>/dev/null | grep -q "Keycloak provisioning completed successfully"; then
+        echo "✅ Terraform provisioning completed successfully!"
+        break
+    elif docker-compose logs keycloak-provisioning 2>/dev/null | grep -q "ERROR"; then
+        echo "❌ Terraform provisioning failed"
+        echo "📋 Terraform logs:"
+        docker-compose logs keycloak-provisioning --tail=20
+        echo "⚠️  Continuing anyway - A2A service will handle authentication automatically"
+        break
+    else
+        echo "   Waiting for Terraform provisioning... ($attempt/$max_attempts)"
+        sleep 10
+        attempt=$((attempt + 1))
+    fi
+done
+
+if [ $attempt -gt $max_attempts ]; then
+    echo "⚠️  Terraform provisioning timeout, but continuing..."
+fi
+
+# Step 12: Start A2A server after provisioning
+echo ""
+echo "🚀 Step 12: Starting A2A server..."
 docker-compose up -d a2a-server
 
-# Step 9: Wait for A2A server to be ready before starting agents
+# Step 13: Wait for A2A server to be ready before starting agents
 echo ""
-echo "⏳ Step 9: Waiting for A2A server to be ready..."
+echo "⏳ Step 13: Waiting for A2A server to be ready..."
 until curl -s http://localhost:8000/health > /dev/null 2>&1; do
     echo "   Waiting for A2A server..."
     sleep 5
 done
 echo "✅ A2A server is ready!"
 
-# Step 9.5: Start agents after A2A server is ready
+# Step 14: Start agents after A2A server is ready
 echo ""
-echo "🤖 Step 9.5: Starting agents..."
+echo "🤖 Step 14: Starting agents..."
 docker-compose up -d buyer-agent seller-agent
 sleep 10
 
-# Step 10: Wait for Keycloak to be ready
+# Step 15: Verify the deployment endpoints are available
 echo ""
-echo "🔑 Step 10: Waiting for Keycloak to be ready..."
-until curl -s http://localhost:11000/health > /dev/null 2>&1; do
-    echo "   Waiting for Keycloak..."
-    sleep 5
-done
-echo "✅ Keycloak is ready!"
-
-# Step 12: Verify the deployment endpoints are available
-echo ""
-echo "🔍 Step 12: Verifying deployment endpoints..."
+echo "🔍 Step 15: Verifying deployment endpoints..."
 if curl -s http://localhost:8000/health | grep -q "protocol_deployment.*true"; then
     echo "✅ Deployment endpoints verified!"
 else
@@ -149,13 +185,13 @@ else
     exit 1
 fi
 
-# Step 13: Users automatically provisioned by Keycloak
+# Step 16: Users automatically provisioned by Keycloak via Terraform
 echo ""
-echo "👥 Step 13: Users automatically provisioned by Keycloak via keycloak-provisioning.sh"
+echo "👥 Step 16: Users automatically provisioned by Keycloak via Terraform"
 
-# Step 14: Generate test token
+# Step 17: Generate test token
 echo ""
-echo "🎫 Step 14: Generating test token..."
+echo "🎫 Step 17: Generating test token..."
 if [ -f "tests/get-token.js" ]; then
     node tests/get-token.js buyer
     echo "✅ Test token generated!"
@@ -163,36 +199,11 @@ else
     echo "⚠️  tests/get-token.js not found, skipping token generation"
 fi
 
-# Step 15: Get technical user token for A2A server
-echo ""
-echo "🔑 Step 15: Getting technical user token for A2A server..."
-if [ -f "scripts/get-technical-token.js" ]; then
-    # Get the token and export it to environment (capture stderr to show progress)
-    node scripts/get-technical-token.js >/tmp/technical-token.txt
-    export NPL_TECHNICAL_USER_TOKEN=$(cat /tmp/technical-token.txt)
-    rm -f /tmp/technical-token.txt
-    
-    if [ -z "$NPL_TECHNICAL_USER_TOKEN" ]; then
-        echo "❌ Failed to capture technical user token"
-        exit 1
-    fi
-    
-    echo "✅ Technical user token obtained and environment variable set!"
-    echo "Token key ID: $(echo $NPL_TECHNICAL_USER_TOKEN | cut -d'.' -f1 | base64 -d 2>/dev/null | jq -r '.kid' 2>/dev/null || echo 'unknown')"
-    
-    # Restart A2A server with new token
-    echo "🔄 Restarting A2A server with new technical token..."
-    NPL_TECHNICAL_USER_TOKEN=$NPL_TECHNICAL_USER_TOKEN docker-compose up -d a2a-server
-    echo "✅ A2A server restarted with updated token!"
-else
-    echo "⚠️  scripts/get-technical-token.js not found, skipping technical token generation"
-fi
-
 cd "$PROJECT_ROOT"
 
-# Step 16: Final verification
+# Step 18: Final verification
 echo ""
-echo "🔍 Step 16: Final verification..."
+echo "🔍 Step 18: Final verification..."
 echo "   Waiting for A2A server process to stabilize..."
 sleep 5
 echo "   Checking A2A server process..."
@@ -225,5 +236,7 @@ echo "   - All Docker images removed"
 echo "   - All caches cleared (Docker, npm)"
 echo "   - All dependencies reinstalled"
 echo "   - All services rebuilt from scratch"
+echo "   - Keycloak provisioned via Terraform (reliable, idempotent)"
+echo "   - A2A service with automatic token management"
 echo "   - TypeScript running directly (no compilation)"
 echo "   - All endpoints verified" 

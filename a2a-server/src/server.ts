@@ -22,6 +22,9 @@ import {
 // Import dynamic method manager
 import { dynamicMethodManager } from './dynamic-method-manager';
 
+// Import token manager
+import { tokenManager } from './token-manager';
+
 // Import agent communication components
 import { AgentRegistry } from './agent-registry';
 import { AgentCommunication } from './agent-communication';
@@ -443,8 +446,8 @@ app.post('/a2a/deploy', async (req: Request, res: Response): Promise<void> => {
         // Validate user token (for audit purposes)
         const claims = validateToken(token);
         
-        // Get technical token for deployment (prototype creation)
-        technicalToken = process.env.NPL_TECHNICAL_USER_TOKEN || process.env.NPL_TOKEN || '';
+        // Get technical token for deployment using token manager
+        technicalToken = await tokenManager.getAccessToken();
 
         console.log(`Deploying new protocol: ${pkg}.${protocol}`);
 

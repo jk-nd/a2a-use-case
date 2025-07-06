@@ -282,8 +282,8 @@ async function testA2ADiscovery() {
     
     if (supplierAgentProtocols.result && supplierAgentProtocols.result.protocols && Array.isArray(supplierAgentProtocols.result.protocols)) {
       supplierAgentProtocols.result.protocols.forEach((protocol, index) => {
-        console.log(`   ${index + 1}. ${protocol['@id']} (State: ${protocol['@state']})`);
-      });
+      console.log(`   ${index + 1}. ${protocol['@id']} (State: ${protocol['@state']})`);
+    });
     } else {
       console.log('❌ No protocols array found in response');
     }

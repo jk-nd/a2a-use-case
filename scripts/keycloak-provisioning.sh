@@ -194,6 +194,19 @@ cat > /tmp/realm-config.json << 'EOF'
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
       "protocol": "openid-connect"
+    },
+    {
+      "clientId": "a2a-service",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "a2a-service-secret",
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "service": "a2a_server",
+        "permissions": ["protocol_deployment", "protocol_discovery", "system_management"]
+      }
     }
   ]
 }
@@ -201,10 +214,22 @@ EOF
 
 echo 'Importing realm configuration...'
 echo "Using token: ${TOKEN:0:20}..."
-RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://keycloak:11000/admin/realms \
+
+# Validate JSON before sending (if jq is available)
+if command -v jq >/dev/null 2>&1; then
+  if ! jq empty /tmp/realm-config.json 2>/dev/null; then
+    echo '❌ Invalid JSON in realm configuration'
+    exit 1
+  fi
+else
+  echo '⚠️  jq not available, skipping JSON validation'
+fi
+
+# Use cat to pipe the file content to curl instead of @ syntax
+RESPONSE=$(cat /tmp/realm-config.json | curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://keycloak:11000/admin/realms \
   -H 'Authorization: Bearer '"$TOKEN" \
   -H 'Content-Type: application/json' \
-  -d @/tmp/realm-config.json)
+  -d @-)
 
 HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
 RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")

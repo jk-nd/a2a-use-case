@@ -197,7 +197,11 @@ a2a_server:
 - **Advanced filtering by organization, skills, and tags**
 - **Real-time agent health monitoring**
 
-✅ **Recent Major Fixes (January 2025)**
+✅ **Recent Major Fixes (July 2025)**
+- **Fixed Keycloak health check** - Replaced curl with TCP connection test for reliable health monitoring
+- **Fixed build script shell errors** - Resolved local variable declaration issues
+- **Enhanced Terraform provisioning** - Robust Keycloak provisioning with automatic retry and cleanup
+- **Improved Docker networking** - Fixed service discovery and health check dependencies
 - **Fixed JWT token refresh mechanism** - No more container restarts needed
 - **Fixed rebuild script process detection** - Proper TypeScript process detection
 - **Fixed A2A method generation** - Proper JavaScript file generation
@@ -348,7 +352,10 @@ Methods are automatically generated from NPL OpenAPI specs:
 git clone <repository>
 cd a2a
 
-# Build and start all services
+# Build and start all services (recommended)
+./scripts/build.sh
+
+# Or use rebuild for faster development cycles
 ./scripts/rebuild.sh
 
 # Run tests
@@ -416,6 +423,8 @@ curl http://localhost:8000/a2a/skills
 - **Multi-IdP Support**: Separate realms for different organizations
 - **JWT Token Issuance**: Issues tokens for agent authentication
 - **Role-Based Access**: Enforces protocol permissions
+- **Terraform Provisioning**: Automated user and client provisioning
+- **Health Monitoring**: TCP-based health checks for reliable status reporting
 
 ### **Agents (Ports 8001, 8002, 8003)**
 - **Buyer Agent**: Handles purchase order creation, vendor evaluation, and contract management
@@ -506,6 +515,10 @@ The system is now **production-ready** with all major issues resolved:
 - **Multi-format skill support** - Backward compatibility with legacy and new formats
 
 ### ✅ **Recent Critical Fixes**
+- **Keycloak Health Monitoring** - Fixed health checks using TCP connection tests instead of curl
+- **Build Script Reliability** - Fixed shell script errors and improved error handling
+- **Terraform Provisioning** - Enhanced with automatic cleanup and retry mechanisms
+- **Docker Service Dependencies** - Improved health check dependencies and service startup order
 - **Token Management** - No more container restarts for token refresh
 - **Build Process** - Reliable rebuild scripts with proper process detection
 - **Method Generation** - Valid JavaScript files generated correctly

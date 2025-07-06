@@ -255,7 +255,7 @@ async function testPaymentWorkflowDeploymentAndWorkflow() {
           description: "Enterprise-grade software license for business use",
           sku: "SW-LICENSE-001"
         },
-        quantity: 5,
+      quantity: 5,
         price: 1000,
         deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
       },
@@ -320,8 +320,8 @@ async function testPaymentWorkflowDeploymentAndWorkflow() {
       console.log(`🔍 Testing ${method} in completed state (should fail)...`);
       try {
         await simulateAgentA2ARequest('Order Agent', method, {
-          id: orderId
-        }, orderAgentToken);
+      id: orderId
+    }, orderAgentToken);
         console.error(`❌ Expected error when calling ${method} in completed state, but call succeeded`);
         throw new Error(`${method} should not be allowed in completed state`);
       } catch (error) {
