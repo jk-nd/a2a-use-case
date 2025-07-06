@@ -5,92 +5,124 @@
  */
 const METHOD_MAPPINGS = [
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "listmyprotocols",
-    "operationId": "rfp_workflow_RfpWorkflow_listMyProtocols",
-    "path": "/npl/rfp_workflow/RfpWorkflow/",
-    "summary": "List all protocol instances for rfp_workflow.RfpWorkflow"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "_getopenapi",
+    "operationId": "_getOpenAPI",
+    "path": "/npl/payment_workflow/-/openapi.json",
+    "summary": "_getopenapi operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getmyprotocolcontent",
-    "operationId": "rfp_workflow_RfpWorkflow_getMyProtocolContent",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/",
-    "summary": "Get protocol content for rfp_workflow.RfpWorkflow"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "_getordercommitmentlist",
+    "operationId": "_getOrderCommitmentList",
+    "path": "/npl/payment_workflow/OrderCommitment/",
+    "summary": "_getordercommitmentlist operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getrfpdetails",
-    "operationId": "RfpWorkflow_getRfpDetails",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getRfpDetails",
-    "summary": "RfpWorkflow_getRfpDetails"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "_createordercommitment",
+    "operationId": "_createOrderCommitment",
+    "path": "/npl/payment_workflow/OrderCommitment/",
+    "summary": "_createordercommitment operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "submitforapproval",
-    "operationId": "RfpWorkflow_submitForApproval",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/submitForApproval",
-    "summary": "RfpWorkflow_submitForApproval"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "_getordercommitmentbyid",
+    "operationId": "_getOrderCommitmentByID",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/",
+    "summary": "_getordercommitmentbyid operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "approvebudget",
-    "operationId": "RfpWorkflow_approveBudget",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/approveBudget",
-    "summary": "RfpWorkflow_approveBudget"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "committopay",
+    "operationId": "OrderCommitment_commitToPay",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/commitToPay",
+    "summary": "committopay operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "rejectbudget",
-    "operationId": "RfpWorkflow_rejectBudget",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/rejectBudget",
-    "summary": "RfpWorkflow_rejectBudget"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "committodeliver",
+    "operationId": "OrderCommitment_commitToDeliver",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/commitToDeliver",
+    "summary": "committodeliver operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "activaterfp",
-    "operationId": "RfpWorkflow_activateRfp",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/activateRfp",
-    "summary": "RfpWorkflow_activateRfp"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "markdelivered",
+    "operationId": "OrderCommitment_markDelivered",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/markDelivered",
+    "summary": "markdelivered operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "cancelrfp",
-    "operationId": "RfpWorkflow_cancelRfp",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/cancelRfp",
-    "summary": "RfpWorkflow_cancelRfp"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "pay",
+    "operationId": "OrderCommitment_pay",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/pay",
+    "summary": "pay operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "cancelrfpbyfinance",
-    "operationId": "RfpWorkflow_cancelRfpByFinance",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/cancelRfpByFinance",
-    "summary": "RfpWorkflow_cancelRfpByFinance"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "complete",
+    "operationId": "OrderCommitment_complete",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/complete",
+    "summary": "complete operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getcurrentbudget",
-    "operationId": "RfpWorkflow_getCurrentBudget",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getCurrentBudget",
-    "summary": "RfpWorkflow_getCurrentBudget"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "cancel",
+    "operationId": "OrderCommitment_cancel",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/cancel",
+    "summary": "cancel operation for payment_workflow.OrderCommitment"
   },
   {
-    "package": "rfp_workflow",
-    "protocol": "RfpWorkflow",
-    "method": "getbudgetapproval",
-    "operationId": "RfpWorkflow_getBudgetApproval",
-    "path": "/npl/rfp_workflow/RfpWorkflow/{id}/getBudgetApproval",
-    "summary": "RfpWorkflow_getBudgetApproval"
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "getstatus",
+    "operationId": "OrderCommitment_getStatus",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/getStatus",
+    "summary": "getstatus operation for payment_workflow.OrderCommitment"
+  },
+  {
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "gettotalamount",
+    "operationId": "OrderCommitment_getTotalAmount",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/getTotalAmount",
+    "summary": "gettotalamount operation for payment_workflow.OrderCommitment"
+  },
+  {
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "getorderdetails",
+    "operationId": "OrderCommitment_getOrderDetails",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/getOrderDetails",
+    "summary": "getorderdetails operation for payment_workflow.OrderCommitment"
+  },
+  {
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "isorderagentcommitted",
+    "operationId": "OrderCommitment_isOrderAgentCommitted",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/isOrderAgentCommitted",
+    "summary": "isorderagentcommitted operation for payment_workflow.OrderCommitment"
+  },
+  {
+    "package": "payment_workflow",
+    "protocol": "OrderCommitment",
+    "method": "issupplieragentcommitted",
+    "operationId": "OrderCommitment_isSupplierAgentCommitted",
+    "path": "/npl/payment_workflow/OrderCommitment/{id}/isSupplierAgentCommitted",
+    "summary": "issupplieragentcommitted operation for payment_workflow.OrderCommitment"
   }
 ];
 
@@ -99,8 +131,8 @@ const METHOD_MAPPINGS = [
  */
 function findMethodMapping(package, protocol, method) {
     return METHOD_MAPPINGS.find(m => 
-        m.package === package && m.protocol === protocol && m.method === method.toLowerCase()
-    );
-}
+                        m.package === package && m.protocol === protocol && m.method === method.toLowerCase()
+                    );
+                }
 
 module.exports = { METHOD_MAPPINGS, findMethodMapping };

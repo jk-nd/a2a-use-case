@@ -218,7 +218,11 @@ export function generateAgentSkills(openAPISpec: any, packageName: string): Prot
                 
                 if (operationId) {
                     // Convert operation ID to method name
-                    const methodName = operationId.toLowerCase();
+                    let methodName = operationId.toLowerCase();
+                    // If operationId starts with protocolName + '_', strip it
+                    if (operationId.startsWith(protocolName + '_')) {
+                        methodName = operationId.substring(protocolName.length + 1).toLowerCase();
+                    }
                     
                     methods.push({
                         name: methodName,

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import { NegotiationService } from './negotiation-service';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +38,9 @@ const AGENT_URL = process.env.AGENT_URL || `http://localhost:${PORT}`;
 const budgetApprovals: Map<string, BudgetApproval> = new Map();
 const budgetData: Map<string, BudgetData> = new Map();
 
+// Initialize negotiation service
+const negotiationService = new NegotiationService();
+
 // Initialize some sample budget data
 budgetData.set('IT-2024-001', {
   budget_code: 'IT-2024-001',
@@ -71,7 +75,7 @@ const verifyToken = (req: express.Request, res: express.Response, next: express.
 };
 
 // Handle agent messages (for agent-to-agent communication)
-function handleAgentMessage(message: any, res: any, id: any) {
+async function handleAgentMessage(message: any, res: any, id: any) {
   // Generic, extensible message handler for AI agents
   if (!message || !message.content) {
     return res.status(400).json({
@@ -85,20 +89,46 @@ function handleAgentMessage(message: any, res: any, id: any) {
   }
   console.log(`[Seller Agent] Received message from ${message.fromAgentId}:`, message.content);
 
-  // Generic acknowledgment/echo (future: AI/skills can process content)
-  const response = {
-    status: 'received',
-    message: 'Message received',
-    echo: message.content,
-    timestamp: new Date().toISOString(),
-    // capabilities: ['seller.process_order', 'seller.check_inventory', 'seller.generate_quote']
-  };
+  try {
+    // Handle negotiation messages
+    if (message.type === 'negotiation') {
+      const response = await negotiationService.handleIncomingMessage(message.content, message.fromAgentId);
+      return res.json({
+        jsonrpc: '2.0',
+        id,
+        result: {
+          status: 'negotiation_response',
+          message: response,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
-  res.json({
-    jsonrpc: '2.0',
-    id,
-    result: response
-  });
+    // Generic acknowledgment/echo (future: AI/skills can process content)
+    const response = {
+      status: 'received',
+      message: 'Message received',
+      echo: message.content,
+      timestamp: new Date().toISOString(),
+      // capabilities: ['seller.process_order', 'seller.check_inventory', 'seller.generate_quote']
+    };
+
+    res.json({
+      jsonrpc: '2.0',
+      id,
+      result: response
+    });
+  } catch (error: any) {
+    console.error('Error handling agent message:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id,
+      error: {
+        code: -32603,
+        message: `Internal error: ${error.message}`
+      }
+    });
+  }
 }
 
 function handleAgentNotification(message: any, res: any) {
@@ -547,6 +577,26 @@ app.post('/a2a/message', async (req, res) => {
       error: (error as any).message,
       receivedAt: new Date().toISOString()
     });
+  }
+});
+
+// Agent-to-agent message endpoint for negotiation
+app.post('/agents/message', async (req, res) => {
+  try {
+    const { fromAgentId, toAgentId, content, type } = req.body;
+    if (type === 'negotiation') {
+      const response = await negotiationService.handleIncomingMessage(content, fromAgentId);
+      return res.json({
+        result: {
+          status: 'negotiation_response',
+          message: response,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    res.status(400).json({ error: 'Unsupported message type' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

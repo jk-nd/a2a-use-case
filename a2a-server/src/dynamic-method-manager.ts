@@ -293,9 +293,33 @@ class DynamicMethodManager {
      * This is a simplified extraction - in practice, the package name might be in the event metadata
      */
     private extractPackageNameFromEvent(data: ApiPrototypePackageData): string | null {
-        // For now, we'll need to discover packages through other means
-        // This is a limitation of the current event structure
-        // We might need to use the current-prototypes endpoint to get full package info
+        // Try to extract package name from the event data
+        // The package name might be in the prototype metadata or we can infer it from the prototype name
+        if (data.prototype?.name) {
+            // For now, we'll use a simple heuristic: if the prototype name contains a dot,
+            // the part before the dot is likely the package name
+            const parts = data.prototype.name.split('.');
+            if (parts.length > 1) {
+                return parts[0];
+            }
+            
+            // If no dot, try to extract from the event data structure
+            // This might need to be adjusted based on the actual event structure
+            if (data.prototype && typeof data.prototype === 'object') {
+                // Look for package-related fields in the prototype data
+                const prototypeData = data.prototype as any;
+                if (prototypeData.package) {
+                    return prototypeData.package;
+                }
+                if (prototypeData.namespace) {
+                    return prototypeData.namespace;
+                }
+            }
+        }
+        
+        // If we can't extract the package name from the event, we'll need to discover it
+        // through other means (like checking all known packages)
+        console.log('DynamicMethodManager: Could not extract package name from event, will use fallback discovery');
         return null;
     }
 
@@ -439,16 +463,8 @@ class DynamicMethodManager {
         try {
             console.log('DynamicMethodManager: Attempting package discovery via direct testing...');
             
-            // Known package names to check (from deployment history and current state)
-            const candidatePackages = [
-                'payment_workflow',
-                'rfp_workflow',
-                'test_auto_reload',
-                'demo'
-            ];
-            
-            // Test each candidate package directly
-            for (const pkg of candidatePackages) {
+            // First, check packages that are currently in knownPackages
+            for (const pkg of this.knownPackages) {
                 try {
                     const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`, {
                         headers: {
@@ -459,18 +475,19 @@ class DynamicMethodManager {
                     
                     if (response.ok) {
                         availablePackages.push(pkg);
-                        console.log(`DynamicMethodManager: Package ${pkg} verified and available`);
-                    } else {
-                        console.log(`DynamicMethodManager: Package ${pkg} not available (${response.status})`);
+                        console.log(`DynamicMethodManager: Found deployed package: ${pkg}`);
                     }
                 } catch (error) {
-                    console.log(`DynamicMethodManager: Package ${pkg} verification failed:`, error instanceof Error ? error.message : String(error));
-                    }
+                    console.log(`DynamicMethodManager: Error checking package ${pkg}:`, error);
                 }
+            }
+            
+            // Fallback: If no packages are known, try to discover common package names
+            if (availablePackages.length === 0) {
+                console.log('DynamicMethodManager: No known packages, attempting fallback discovery...');
+                const fallbackPackages = ['payment_workflow', 'test_auto_reload', 'demo'];
                 
-            // Also check packages that are currently in knownPackages
-            for (const pkg of this.knownPackages) {
-                if (!candidatePackages.includes(pkg)) {
+                for (const pkg of fallbackPackages) {
                     try {
                         const response = await fetch(`${this.NPL_ENGINE_URL}/npl/${pkg}/-/openapi.json`, {
                             headers: {
@@ -481,12 +498,10 @@ class DynamicMethodManager {
                         
                         if (response.ok) {
                             availablePackages.push(pkg);
-                            console.log(`DynamicMethodManager: Known package ${pkg} still available`);
-                        } else {
-                            console.log(`DynamicMethodManager: Known package ${pkg} no longer available (${response.status})`);
+                            console.log(`DynamicMethodManager: Discovered deployed package: ${pkg}`);
                         }
                     } catch (error) {
-                        console.log(`DynamicMethodManager: Known package ${pkg} verification failed:`, error instanceof Error ? error.message : String(error));
+                        console.log(`DynamicMethodManager: Error checking fallback package ${pkg}:`, error);
                     }
                 }
             }

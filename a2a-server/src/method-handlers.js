@@ -1,533 +1,1177 @@
 
 /**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_getRfpDetails
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
+ * Generated method handlers for NPL protocols
+ * Each handler is a function that executes the corresponding NPL operation
  */
-async function RfpWorkflow_getRfpDetails(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/getRfpDetails';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_submitForApproval
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_submitForApproval(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/submitForApproval';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_approveBudget
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_approveBudget(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/approveBudget';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_rejectBudget
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_rejectBudget(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/rejectBudget';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_activateRfp
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_activateRfp(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/activateRfp';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_cancelRfp
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_cancelRfp(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/cancelRfp';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_cancelRfpByFinance
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_cancelRfpByFinance(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/cancelRfpByFinance';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_getCurrentBudget
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_getCurrentBudget(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/getCurrentBudget';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
-
-/**
- * Generated A2A method handler for rfp_workflow_RfpWorkflow - RfpWorkflow_getBudgetApproval
- * @param {Object} params - Method parameters
- * @param {string} params.protocolId - Protocol instance ID
- * @param {Object} params.body - Request body (if applicable)
- * @param {Object} params.query - Query parameters (if applicable)
- * @param {string} params.token - JWT token for authentication
- * @returns {Promise<Object>} Response from NPL engine
- */
-async function RfpWorkflow_getBudgetApproval(params) {
-    const { protocolId, body, query, token, ...methodParams } = params;
-    
-    // Build URL with path parameters
-    let url = process.env.NPL_ENGINE_URL + '/npl/rfp_workflow/RfpWorkflow/{id}/getBudgetApproval';
-    
-    // Replace {id} with protocolId (common pattern for NPL protocols)
-    url = url.replace('{id}', protocolId);
-
-    
-    // Add query parameters
-    const queryParams = new URLSearchParams();
-
-    if (queryParams.toString()) {
-        url += '?' + queryParams.toString();
-    }
-    
-    // Prepare request body - use methodParams if no explicit body provided
-    const requestBody = body || methodParams;
-    
-    // Make request to NPL engine
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        throw new Error('NPL engine error: ' + response.status + ' ' + response.statusText);
-    }
-    
-    // Handle empty response body (common for state transition methods)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text.trim() === '') {
-            return { success: true, message: 'Operation completed successfully' };
-        }
-        return JSON.parse(text);
-    } else {
-        return { success: true, message: 'Operation completed successfully' };
-    }
-}
-
 module.exports = {
-    RfpWorkflow_getRfpDetails,
-    RfpWorkflow_submitForApproval,
-    RfpWorkflow_approveBudget,
-    RfpWorkflow_rejectBudget,
-    RfpWorkflow_activateRfp,
-    RfpWorkflow_cancelRfp,
-    RfpWorkflow_cancelRfpByFinance,
-    RfpWorkflow_getCurrentBudget,
-    RfpWorkflow_getBudgetApproval
+  "_getOpenAPI": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/-/openapi.json';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('get' === 'post' || 'get' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('get' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "_getOrderCommitmentList": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('get' === 'post' || 'get' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('get' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "_createOrderCommitment": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "_getOrderCommitmentByID": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('get' === 'post' || 'get' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('get' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_commitToPay": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/commitToPay';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_commitToDeliver": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/commitToDeliver';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_markDelivered": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/markDelivered';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_pay": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/pay';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_complete": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/complete';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_cancel": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/cancel';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_getStatus": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/getStatus';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_getTotalAmount": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/getTotalAmount';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_getOrderDetails": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/getOrderDetails';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_isOrderAgentCommitted": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/isOrderAgentCommitted';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        },
+  "OrderCommitment_isSupplierAgentCommitted": async (params) => {
+                            const { token, ...requestParams } = params;
+                            
+                            // Build request URL
+                            let requestPath = '/npl/payment_workflow/OrderCommitment/{id}/isSupplierAgentCommitted';
+                            
+                            // Replace path parameters with values from params
+                            const pathParams = requestPath.match(/\{([^}]+)\}/g);
+                            if (pathParams) {
+                                for (const param of pathParams) {
+                                    const paramName = param.slice(1, -1);
+                                    const paramValue = requestParams[paramName];
+                                    if (paramValue !== undefined) {
+                                        requestPath = requestPath.replace(param, paramValue);
+                                    }
+                                }
+                            }
+                            
+                            // Prepare request options
+                            const requestOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                }
+                            };
+                            
+                            // Add body for POST/PUT requests
+                            if ('post' === 'post' || 'post' === 'put') {
+                                requestOptions.body = JSON.stringify(requestParams);
+                            }
+                            
+                            // Add query parameters for GET requests
+                            if ('post' === 'get') {
+                                const queryParams = new URLSearchParams();
+                                for (const [key, value] of Object.entries(requestParams)) {
+                                    if (value !== undefined && !requestPath.includes(`{${key}}`)) {
+                                        queryParams.append(key, String(value));
+                                    }
+                                }
+                                if (queryParams.toString()) {
+                                    requestPath += `?${queryParams.toString()}`;
+                                }
+                            }
+                            
+                            // Make request to NPL engine
+                            const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://127.0.0.1:12000';
+                            const response = await fetch(`${NPL_ENGINE_URL}${requestPath}`, requestOptions);
+                            
+                            // Get response text first to handle empty responses
+                            const responseText = await response.text();
+                            let responseData;
+                            
+                            // Try to parse as JSON if we have content
+                            if (responseText && responseText.trim()) {
+                                try {
+                                    responseData = JSON.parse(responseText);
+                                } catch (error) {
+                                    // If JSON parsing fails, use the text as is
+                                    responseData = responseText;
+                                }
+                            }
+                            
+                            // Check if response indicates an error
+                            if (!response.ok) {
+                                // If we have JSON error data, use it
+                                if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+                                    throw new Error(`NPL engine error: ${responseData.error}`);
+                                } else if (responseData && typeof responseData === 'string') {
+                                    throw new Error(`NPL engine error: ${responseData}`);
+                                } else {
+                                    throw new Error(`NPL engine error: ${response.status} ${response.statusText}`);
+                                }
+                            }
+                            
+                            return responseData;
+                        }
 };

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import { NegotiationService } from './negotiation-service';
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +36,9 @@ const AGENT_URL = process.env.AGENT_URL || `http://localhost:${PORT}`;
 
 // In-memory storage for RFPs (minimal)
 const rfpStore: Map<string, RfpData> = new Map();
+
+// Initialize negotiation service
+const negotiationService = new NegotiationService();
 
 // Middleware
 app.use(cors());
@@ -243,7 +247,7 @@ app.post('/', (req, res) => {
   }
 });
 
-function handleAgentMessage(message: any, res: any, id: any) {
+async function handleAgentMessage(message: any, res: any, id: any) {
   // Generic, extensible message handler for AI agents
   if (!message || !message.content) {
     return res.status(400).json({
@@ -257,20 +261,46 @@ function handleAgentMessage(message: any, res: any, id: any) {
   }
   console.log(`[Buyer Agent] Received message from ${message.fromAgentId}:`, message.content);
 
-  // Generic acknowledgment/echo (future: AI/skills can process content)
-  const response = {
-      status: 'received',
-    message: 'Message received',
-    echo: message.content,
-    timestamp: new Date().toISOString(),
-    // capabilities: ['buyer.create_purchase_order', 'buyer.evaluate_vendor', 'buyer.manage_contract']
-  };
+  try {
+    // Handle negotiation messages
+    if (message.type === 'negotiation') {
+      const response = await negotiationService.handleIncomingMessage(message.content, message.fromAgentId);
+      return res.json({
+        jsonrpc: '2.0',
+        id,
+        result: {
+          status: 'negotiation_response',
+          message: response,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
-  res.json({
-    jsonrpc: '2.0',
-    id,
-    result: response
-  });
+    // Generic acknowledgment/echo (future: AI/skills can process content)
+    const response = {
+      status: 'received',
+      message: 'Message received',
+      echo: message.content,
+      timestamp: new Date().toISOString(),
+      // capabilities: ['buyer.create_purchase_order', 'buyer.evaluate_vendor', 'buyer.manage_contract']
+    };
+
+    res.json({
+      jsonrpc: '2.0',
+      id,
+      result: response
+    });
+  } catch (error: any) {
+    console.error('Error handling agent message:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id,
+      error: {
+        code: -32603,
+        message: `Internal error: ${error.message}`
+      }
+    });
+  }
 }
 
 function handleAgentNotification(message: any, res: any) {
@@ -320,6 +350,28 @@ app.post('/', async (req, res) => {
         code: -32603,
         message: `Internal error: ${error.message}`
       }
+    });
+  }
+});
+
+// Negotiation endpoint
+app.post('/agents/negotiate', async (req, res) => {
+  try {
+    const { budget = 5000 } = req.body;
+    
+    console.log('🤖 Buyer Agent: Starting negotiation with budget $' + budget);
+    
+    const result = await negotiationService.startNegotiation(budget);
+    
+    res.json({
+      success: result.success,
+      result: result
+    });
+  } catch (error: any) {
+    console.error('Error starting negotiation:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
@@ -603,6 +655,26 @@ app.post('/a2a/message', async (req, res) => {
       error: (error as any).message,
       receivedAt: new Date().toISOString()
     });
+  }
+});
+
+// Agent-to-agent message endpoint for negotiation
+app.post('/agents/message', async (req, res) => {
+  try {
+    const { fromAgentId, toAgentId, content, type } = req.body;
+    if (type === 'negotiation') {
+      const response = await negotiationService.handleIncomingMessage(content, fromAgentId);
+      return res.json({
+        result: {
+          status: 'negotiation_response',
+          message: response,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    res.status(400).json({ error: 'Unsupported message type' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
