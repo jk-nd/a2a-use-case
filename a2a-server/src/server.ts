@@ -22,6 +22,11 @@ import {
 // Import dynamic method manager
 import { dynamicMethodManager } from './dynamic-method-manager';
 
+// Import agent communication components
+import { AgentRegistry } from './agent-registry';
+import { AgentCommunication } from './agent-communication';
+import { AgentEndpoints } from './agent-endpoints';
+
 // Import generated agent skills (for /a2a/skills endpoint)
 let getProtocolSkills: any, getAllProtocols: any;
 
@@ -51,6 +56,11 @@ function reloadAgentSkills() {
 // Initial load
 reloadAgentSkills();
 
+// Initialize agent communication system
+const agentRegistry = new AgentRegistry();
+const agentCommunication = new AgentCommunication(agentRegistry);
+const agentEndpoints = new AgentEndpoints(agentRegistry, agentCommunication);
+
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -64,6 +74,9 @@ const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || 'noumena';
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Mount agent communication endpoints
+app.use('/agents', agentEndpoints.getRouter());
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -1005,12 +1018,25 @@ app.post('/a2a/instantiate', async (req: Request, res: Response): Promise<void> 
     }
 });
 
+// Start periodic cleanup of old messages (every hour)
+setInterval(async () => {
+  try {
+    const deletedCount = await agentCommunication.cleanupOldMessages();
+    if (deletedCount > 0) {
+      console.log(`🧹 Cleaned up ${deletedCount} old messages`);
+    }
+  } catch (error) {
+    console.error('❌ Message cleanup error:', error);
+  }
+}, 60 * 60 * 1000); // 1 hour
+
 // Start server
 app.listen(PORT, () => {
   console.log("A2A Server (NPL Integration) running on port " + PORT);
   console.log("NPL Integration: Enabled");
   console.log("Protocol Deployment: Enabled");
   console.log("Protocol Instantiation: Enabled");
+  console.log("Agent Communication: Enabled");
   console.log("Available protocols: " + getAllProtocols().map((p: any) => `${p.package}.${p.protocol}`).join(", "));
 });
 

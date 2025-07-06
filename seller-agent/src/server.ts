@@ -224,7 +224,7 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
     const request: JSONRPCRequest = req.body;
     const token = (req as any).token;
     
-    console.log('Finance Agent received request:', {
+    console.log('Seller Agent received request:', {
       id: request.id,
       method: request.method,
       params: request.params
@@ -233,14 +233,14 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
     let result: any;
     
     switch (request.method) {
-      case 'finance.approve_budget':
-        result = await handleApproveBudget(request.params, token);
+      case 'seller.process_order':
+        result = await handleProcessOrder(request.params, token);
         break;
-      case 'finance.check_budget_availability':
-        result = await handleCheckBudgetAvailability(request.params, token);
+      case 'seller.check_inventory':
+        result = await handleCheckInventory(request.params, token);
         break;
-      case 'finance.get_budget_status':
-        result = await handleGetBudgetStatus(request.params, token);
+      case 'seller.generate_quote':
+        result = await handleGenerateQuote(request.params, token);
         break;
       default:
         const methodNotFoundError: MethodNotFoundError = {
@@ -293,125 +293,167 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
   }
 });
 
-// Handle Approve Budget
-async function handleApproveBudget(params: any, token: string) {
-  const { rfp_id, amount, budget_code, agent_id, comments } = params;
+// Handle Process Order
+async function handleProcessOrder(params: any, token: string) {
+  const { order_id, items, agent_id } = params;
   
-  if (!rfp_id || !amount || !budget_code) {
-    throw new Error('Missing required fields: rfp_id, amount, budget_code');
-  }
-  
-  if (amount <= 0) {
-    throw new Error('Amount must be positive');
-  }
-  
-  // Check if budget is available
-  const budget = budgetData.get(budget_code);
-  if (!budget) {
-    throw new Error(`Budget code not found: ${budget_code}`);
-  }
-  
-  if (budget.remaining_budget < amount) {
-    throw new Error(`Insufficient budget. Available: ${budget.remaining_budget}, Requested: ${amount}`);
+  if (!order_id || !items) {
+    throw new Error('Missing required fields: order_id, items');
   }
   
   // Call A2A Hub for policy enforcement
-  const hubResponse = await callA2AHub('finance.approve_budget', agent_id || 'unknown', {
-    rfp_id,
-    amount,
-    budget_code
+  const hubResponse = await callA2AHub('seller.process_order', agent_id || 'unknown', {
+    order_id,
+    items
   }, token);
   
   if (!hubResponse.success) {
     throw new Error(`Policy check failed: ${hubResponse.error}`);
   }
   
-  // Create budget approval
-  const approval: BudgetApproval = {
-    rfp_id,
-    amount,
-    budget_code,
-    approved: true,
-    approved_by: agent_id || 'unknown',
-    approved_at: new Date().toISOString(),
-    comments
-  };
-  
-  // Store approval
-  budgetApprovals.set(rfp_id, approval);
-  
-  // Update budget allocation
-  budget.allocated_budget += amount;
-  budget.remaining_budget -= amount;
-  budgetData.set(budget_code, budget);
-  
-  console.log(`Budget approved for RFP: ${rfp_id} by ${agent_id}`);
+  console.log(`Processed order: ${order_id} by ${agent_id}`);
   
   return {
-    rfp_id,
-    approved: true,
-    amount,
-    budget_code,
-    remaining_budget: budget.remaining_budget,
-    message: 'Budget approved successfully'
+    order_id,
+    status: 'processed',
+    items_processed: items.length,
+    message: 'Order processed successfully'
   };
 }
 
-// Handle Check Budget Availability
-async function handleCheckBudgetAvailability(params: any, token: string) {
-  const { budget_code, amount } = params;
+// Handle Check Inventory
+async function handleCheckInventory(params: any, token: string) {
+  const { product_id, quantity } = params;
   
-  if (!budget_code || !amount) {
-    throw new Error('Missing required fields: budget_code, amount');
+  if (!product_id || !quantity) {
+    throw new Error('Missing required fields: product_id, quantity');
   }
   
-  const budget = budgetData.get(budget_code);
-  if (!budget) {
-    throw new Error(`Budget code not found: ${budget_code}`);
-  }
-  
-  const available = budget.remaining_budget >= amount;
+  // Mock inventory check
+  const available = Math.random() > 0.3; // 70% chance of availability
   
   return {
-    budget_code,
-    requested_amount: amount,
-    total_budget: budget.total_budget,
-    allocated_budget: budget.allocated_budget,
-    remaining_budget: budget.remaining_budget,
+    product_id,
+    requested_quantity: quantity,
     available: available,
-    message: available ? 'Budget is available' : 'Insufficient budget'
+    available_quantity: available ? quantity : Math.floor(quantity * 0.5),
+    message: available ? 'Product is available' : 'Limited inventory available'
   };
 }
 
-// Handle Get Budget Status
-async function handleGetBudgetStatus(params: any, token: string) {
-  const { budget_code } = params;
+// Handle Generate Quote
+async function handleGenerateQuote(params: any, token: string) {
+  const { product_id, quantity, delivery_date } = params;
   
-  if (!budget_code) {
-    throw new Error('Budget code is required');
+  if (!product_id || !quantity) {
+    throw new Error('Missing required fields: product_id, quantity');
   }
   
-  const budget = budgetData.get(budget_code);
-  if (!budget) {
-    throw new Error(`Budget code not found: ${budget_code}`);
-  }
+  // Mock quote generation
+  const basePrice = 100;
+  const unitPrice = basePrice + Math.floor(Math.random() * 50);
+  const totalPrice = unitPrice * quantity;
+  const quoteId = `quote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
   return {
-    budget_code,
-    total_budget: budget.total_budget,
-    allocated_budget: budget.allocated_budget,
-    remaining_budget: budget.remaining_budget,
-    fiscal_year: budget.fiscal_year,
-    utilization_percentage: Math.round((budget.allocated_budget / budget.total_budget) * 100)
+    quote_id: quoteId,
+    product_id,
+    quantity,
+    unit_price: unitPrice,
+    total_price: totalPrice,
+    delivery_date: delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    valid_until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    message: 'Quote generated successfully'
   };
+}
+
+/**
+ * Register this agent with the A2A service
+ */
+async function registerWithA2AService() {
+  try {
+    const registrationData = {
+      agent: {
+        name: 'Seller Agent',
+        description: 'Enterprise seller agent for order fulfillment, inventory management, and sales processing with policy enforcement',
+        url: `http://localhost:${PORT}`,
+        transport: 'http',
+        capabilities: [
+          'Order fulfillment and processing',
+          'Inventory management',
+          'Sales policy enforcement',
+          'Pricing and quotation',
+          'Delivery coordination',
+          'Customer relationship management'
+        ],
+        skills: [
+          'seller.process_order',
+          'seller.check_inventory',
+          'seller.generate_quote'
+        ],
+        organization: 'enterprise',
+        version: '1.0.0',
+        tags: ['seller', 'sales', 'fulfillment', 'inventory', 'enterprise']
+      }
+    };
+
+    const response = await fetch(`${A2A_HUB_URL}/agents/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(registrationData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Registration failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json() as { agentId: string; message: string };
+    console.log(`✅ Successfully registered with A2A service: ${result.agentId}`);
+    
+    // Start sending heartbeats
+    startHeartbeat(result.agentId);
+    
+    return result.agentId;
+  } catch (error) {
+    console.error('❌ Failed to register with A2A service:', error);
+    // Don't fail startup if registration fails
+    return null;
+  }
+}
+
+/**
+ * Send periodic heartbeats to maintain registration
+ */
+function startHeartbeat(agentId: string) {
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${A2A_HUB_URL}/agents/heartbeat/${agentId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn(`⚠️ Heartbeat failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Heartbeat error:', error);
+    }
+  }, 30000); // Send heartbeat every 30 seconds
 }
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Finance Agent running on port ${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`Seller Agent running on port ${PORT}`);
   console.log(`A2A Hub URL: ${A2A_HUB_URL}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Agent card: http://localhost:${PORT}/a2a/agent-card`);
+  
+  // Register with A2A service
+  await registerWithA2AService();
 });
 
 export default app; 

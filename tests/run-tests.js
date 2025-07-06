@@ -119,6 +119,11 @@ const TESTS = [
     name: 'Protocol Instantiation Test',
     file: 'test-protocol-instantiation.js',
     description: 'Test protocol instantiation'
+  },
+  {
+    name: 'Agent Communication Test',
+    file: 'test-agent-communication.js',
+    description: 'Test agent registration, discovery, and communication'
   }
 ];
 

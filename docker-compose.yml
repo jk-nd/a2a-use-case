@@ -116,10 +116,10 @@ services:
     depends_on:
       - engine
 
-  # Procurement Agent
-  procurement-agent:
+  # Buyer Agent
+  buyer-agent:
     build:
-      context: ./procurement-agent
+      context: ./buyer-agent
       dockerfile: Dockerfile
     environment:
       PORT: 8001
@@ -129,10 +129,10 @@ services:
     depends_on:
       - a2a-server
 
-  # Finance Agent
-  finance-agent:
+  # Seller Agent
+  seller-agent:
     build:
-      context: ./finance-agent
+      context: ./seller-agent
       dockerfile: Dockerfile
     environment:
       PORT: 8002

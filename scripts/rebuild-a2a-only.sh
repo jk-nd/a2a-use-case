@@ -26,26 +26,26 @@ echo "🆔 Build ID: $BUILD_ID"
 # Step 1: Stop only A2A-related containers
 echo ""
 echo "🛑 Step 1: Stopping A2A-related containers..."
-docker-compose stop a2a-server procurement-agent finance-agent 2>/dev/null || echo "Some containers may not be running"
+docker-compose stop a2a-server buyer-agent seller-agent 2>/dev/null || echo "Some containers may not be running"
 
 # Step 2: Remove only A2A-related containers
 echo ""
 echo "🗑️  Step 2: Removing A2A-related containers..."
-docker-compose rm -f a2a-server procurement-agent finance-agent 2>/dev/null || echo "Some containers may not exist"
+docker-compose rm -f a2a-server buyer-agent seller-agent 2>/dev/null || echo "Some containers may not exist"
 
 # Step 3: Remove only A2A-related Docker images
 echo ""
 echo "🗑️  Step 3: Removing A2A-related Docker images..."
-docker rmi a2a-a2a-server:latest a2a-procurement-agent:latest a2a-finance-agent:latest 2>/dev/null || echo "Some images may not exist"
+docker rmi a2a-a2a-server:latest a2a-buyer-agent:latest a2a-seller-agent:latest 2>/dev/null || echo "Some images may not exist"
 
 # Step 4: Clear npm caches for A2A services
 echo ""
 echo "🧹 Step 4: Clearing npm caches for A2A services..."
 cd a2a-server
 npm cache clean --force
-cd ../procurement-agent
+cd ../buyer-agent
 npm cache clean --force
-cd ../finance-agent
+cd ../seller-agent
 npm cache clean --force
 cd ..
 
@@ -58,14 +58,14 @@ rm -rf node_modules package-lock.json
 npm install
 cd ..
 
-echo "   Procurement Agent..."
-cd procurement-agent
+echo "   Buyer Agent..."
+cd buyer-agent
 rm -rf node_modules package-lock.json
 npm install
 cd ..
 
-echo "   Finance Agent..."
-cd finance-agent
+echo "   Seller Agent..."
+cd seller-agent
 rm -rf node_modules package-lock.json
 npm install
 cd ..
@@ -90,23 +90,31 @@ cd ..
 # Step 7: Build only A2A-related Docker images
 echo ""
 echo "🏗️  Step 7: Building A2A-related Docker images..."
-docker-compose build --no-cache a2a-server procurement-agent finance-agent
+docker-compose build --no-cache a2a-server buyer-agent seller-agent
 
 echo "✅ A2A Docker images built successfully!"
 
-# Step 8: Start only A2A-related services
+# Step 8: Start A2A server first, then agents
 echo ""
-echo "🚀 Step 8: Starting A2A-related services..."
-docker-compose up -d a2a-server procurement-agent finance-agent
+echo "🚀 Step 8: Starting A2A server first..."
+docker-compose up -d a2a-server
 
-# Step 9: Wait for A2A server to be ready
+# Step 8.5: Wait for A2A server to be ready before starting agents
 echo ""
-echo "⏳ Step 9: Waiting for A2A server to be ready..."
+echo "⏳ Step 8.5: Waiting for A2A server to be ready..."
 until curl -s http://localhost:8000/health > /dev/null 2>&1; do
     echo "   Waiting for A2A server..."
     sleep 5
 done
 echo "✅ A2A server is ready!"
+
+# Step 8.6: Start agents after A2A server is ready
+echo ""
+echo "🤖 Step 8.6: Starting agents..."
+docker-compose up -d buyer-agent seller-agent
+sleep 10
+
+
 
 # Step 10: Verify the deployment endpoints are available
 echo ""
@@ -161,23 +169,23 @@ else
 fi
 
 echo "   Checking A2A services..."
-docker-compose ps a2a-server procurement-agent finance-agent
+docker-compose ps a2a-server buyer-agent seller-agent
 
 echo ""
 echo "🎉 A2A service rebuild completed successfully!"
 echo ""
 echo "📊 A2A Service Status:"
 echo "   A2A Server: http://localhost:8000"
-echo "   Procurement Agent: http://localhost:8001"
-echo "   Finance Agent: http://localhost:8002"
+echo "   Buyer Agent: http://localhost:8001"
+echo "   Seller Agent: http://localhost:8002"
 echo ""
 echo "🔑 Technical user token available in .technical-user-token"
 echo "🧪 Run tests with: cd tests && ./run-tests.sh"
 echo ""
 echo "📝 Rebuild Summary:"
 echo "   ✅ A2A Server rebuilt and running"
-echo "   ✅ Procurement Agent rebuilt and running"
-echo "   ✅ Finance Agent rebuilt and running"
+echo "   ✅ Buyer Agent rebuilt and running"
+echo "   ✅ Seller Agent rebuilt and running"
 echo "   ✅ NPL Engine, Keycloak, and databases left intact"
 echo ""
 echo "🚀 Ready for development!" 

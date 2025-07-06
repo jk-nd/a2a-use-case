@@ -20,7 +20,7 @@ This project demonstrates a **policy-first, agent-driven architecture** where:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Procurement   │    │   Finance       │    │   Supplier      │
+│     Buyer       │    │     Seller      │    │   Supplier      │
 │     Agent       │    │     Agent       │    │     Agent       │
 │   (Port 8001)   │    │   (Port 8002)   │    │   (Port 8003)   │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
@@ -160,7 +160,7 @@ Agents from different organizations can collaborate securely:
 
 ```yaml
 # Company A's agents use their own Keycloak
-procurement_agent:
+buyer_agent:
   environment:
     KEYCLOAK_URL: http://keycloak.company-a.com
     
@@ -321,8 +321,8 @@ curl http://localhost:8000/a2a/skills
 - **Role-Based Access**: Enforces protocol permissions
 
 ### **Agents (Ports 8001, 8002, 8003)**
-- **Procurement Agent**: Handles procurement workflows
-- **Finance Agent**: Handles financial workflows
+- **Buyer Agent**: Handles purchase order creation, vendor evaluation, and contract management
+- **Seller Agent**: Handles order fulfillment, inventory management, and sales processing
 - **Supplier Agent**: Handles supplier interactions
 
 ## 📊 **Performance & Reliability**

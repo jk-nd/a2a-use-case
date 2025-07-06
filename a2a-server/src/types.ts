@@ -1268,3 +1268,217 @@ export const defaultOpenAPISpec = {
   paths: {}
 };
 // --8<-- [end:DefaultOpenAPISpec]
+
+// --8<-- [start:AgentRegistration]
+/**
+ * Represents an agent registration in the agent registry
+ */
+export interface AgentRegistration {
+  /** Unique identifier for the agent */
+  agentId: string;
+  /** Human readable name of the agent */
+  name: string;
+  /** Description of what the agent does */
+  description: string;
+  /** URL where the agent can be reached */
+  url: string;
+  /** Transport protocol (JSONRPC, HTTP, etc.) */
+  transport: string;
+  /** Agent capabilities */
+  capabilities: AgentCapabilities;
+  /** Agent skills */
+  skills: AgentSkill[];
+  /** Organization/owner of the agent */
+  organization: string;
+  /** Agent version */
+  version: string;
+  /** Registration timestamp */
+  registeredAt: string;
+  /** Last heartbeat timestamp */
+  lastHeartbeat: string;
+  /** Agent status */
+  status: 'active' | 'inactive' | 'error';
+  /** Optional metadata */
+  metadata?: { [key: string]: any };
+}
+// --8<-- [end:AgentRegistration]
+
+// --8<-- [start:AgentMessage]
+/**
+ * Represents a message sent between agents
+ */
+export interface AgentMessage {
+  /** Message ID */
+  id: string;
+  /** Sender agent ID */
+  fromAgentId: string;
+  /** Recipient agent ID */
+  toAgentId: string;
+  /** Message type */
+  type: 'request' | 'response' | 'notification' | 'broadcast';
+  /** Message content */
+  content: any;
+  /** Message timestamp */
+  timestamp: string;
+  /** Optional correlation ID for request/response pairs */
+  correlationId?: string;
+  /** Optional metadata */
+  metadata?: { [key: string]: any };
+}
+// --8<-- [end:AgentMessage]
+
+// --8<-- [start:AgentMessageRequest]
+/**
+ * Request to send a message to another agent
+ */
+export interface AgentMessageRequest {
+  /** Target agent ID */
+  toAgentId: string;
+  /** Message type */
+  type: 'request' | 'notification' | 'broadcast';
+  /** Message content */
+  content: any;
+  /** Optional correlation ID */
+  correlationId?: string;
+  /** Optional metadata */
+  metadata?: { [key: string]: any };
+}
+// --8<-- [end:AgentMessageRequest]
+
+// --8<-- [start:AgentMessageResponse]
+/**
+ * Response from sending a message to another agent
+ */
+export interface AgentMessageResponse {
+  /** Message ID */
+  messageId: string;
+  /** Status of the message */
+  status: 'delivered' | 'pending' | 'failed';
+  /** Optional response content (for request messages) */
+  response?: any;
+  /** Optional error information */
+  error?: string;
+}
+// --8<-- [end:AgentMessageResponse]
+
+// --8<-- [start:AgentDiscoveryRequest]
+/**
+ * Request to discover other agents
+ */
+export interface AgentDiscoveryRequest {
+  /** Optional filter by organization */
+  organization?: string;
+  /** Optional filter by capabilities */
+  capabilities?: string[];
+  /** Optional filter by skills */
+  skills?: string[];
+  /** Optional filter by tags */
+  tags?: string[];
+}
+// --8<-- [end:AgentDiscoveryRequest]
+
+// --8<-- [start:AgentDiscoveryResponse]
+/**
+ * Response containing discovered agents
+ */
+export interface AgentDiscoveryResponse {
+  /** List of discovered agents */
+  agents: AgentRegistration[];
+  /** Total number of agents found */
+  total: number;
+  /** Query timestamp */
+  timestamp: string;
+}
+// --8<-- [end:AgentDiscoveryResponse]
+
+// --8<-- [start:AgentCollaborationRequest]
+/**
+ * Request to start a collaboration with another agent
+ */
+export interface AgentCollaborationRequest {
+  /** Target agent ID */
+  targetAgentId: string;
+  /** Collaboration type */
+  type: 'workflow' | 'task' | 'protocol';
+  /** Collaboration details */
+  details: {
+    /** Protocol or workflow name */
+    name: string;
+    /** Parameters for the collaboration */
+    parameters?: { [key: string]: any };
+    /** Expected outcomes */
+    expectedOutcomes?: string[];
+  };
+  /** Optional metadata */
+  metadata?: { [key: string]: any };
+}
+// --8<-- [end:AgentCollaborationRequest]
+
+// --8<-- [start:AgentCollaborationResponse]
+/**
+ * Response to a collaboration request
+ */
+export interface AgentCollaborationResponse {
+  /** Collaboration ID */
+  collaborationId: string;
+  /** Status of the collaboration */
+  status: 'accepted' | 'rejected' | 'pending';
+  /** Optional message */
+  message?: string;
+  /** Optional collaboration details */
+  details?: { [key: string]: any };
+}
+// --8<-- [end:AgentCollaborationResponse]
+
+// --8<-- [start:AgentHealthStatus]
+/**
+ * Agent health status information
+ */
+export interface AgentHealthStatus {
+  /** Agent ID */
+  agentId: string;
+  /** Health status */
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
+  /** Status message */
+  message?: string;
+  /** Last check timestamp */
+  lastCheck: string;
+  /** Optional metrics */
+  metrics?: {
+    /** Response time in milliseconds */
+    responseTime?: number;
+    /** Memory usage percentage */
+    memoryUsage?: number;
+    /** CPU usage percentage */
+    cpuUsage?: number;
+    /** Number of active tasks */
+    activeTasks?: number;
+  };
+}
+// --8<-- [end:AgentHealthStatus]
+
+// --8<-- [start:AgentRegistrationRequest]
+/**
+ * Request to register an agent
+ */
+export interface AgentRegistrationRequest {
+  /** Agent information */
+  agent: Omit<AgentRegistration, 'agentId' | 'registeredAt' | 'lastHeartbeat' | 'status'>;
+}
+// --8<-- [end:AgentRegistrationRequest]
+
+// --8<-- [start:AgentRegistrationResponse]
+/**
+ * Response to agent registration
+ */
+export interface AgentRegistrationResponse {
+  /** Assigned agent ID */
+  agentId: string;
+  /** Registration status */
+  status: 'registered' | 'rejected';
+  /** Optional message */
+  message?: string;
+  /** Registration timestamp */
+  registeredAt: string;
+}
+// --8<-- [end:AgentRegistrationResponse]

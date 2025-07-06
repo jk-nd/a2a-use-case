@@ -53,9 +53,9 @@ echo ""
 echo "🧹 Step 4: Clearing npm caches..."
 cd a2a-server
 npm cache clean --force
-cd ../procurement-agent
+cd ../buyer-agent
 npm cache clean --force
-cd ../finance-agent
+cd ../seller-agent
 npm cache clean --force
 cd ..
 
@@ -68,14 +68,14 @@ rm -rf node_modules package-lock.json
 npm install
 cd ..
 
-echo "   Procurement Agent..."
-cd procurement-agent
+echo "   Buyer Agent..."
+cd buyer-agent
 rm -rf node_modules package-lock.json
 npm install
 cd ..
 
-echo "   Finance Agent..."
-cd finance-agent
+echo "   Seller Agent..."
+cd seller-agent
 rm -rf node_modules package-lock.json
 npm install
 cd ..
@@ -104,15 +104,29 @@ docker-compose build --no-cache
 
 echo "✅ All Docker images built successfully!"
 
-# Step 8: Start all services
+# Step 8: Start core services first (A2A server, engine, keycloak)
 echo ""
-echo "🚀 Step 8: Starting all services..."
-docker-compose up -d
+echo "🚀 Step 8: Starting core services..."
+docker-compose up -d engine-db keycloak-db
+sleep 10
+docker-compose up -d keycloak engine
+sleep 15
+docker-compose up -d a2a-server
 
-# Step 9: Wait for services to start
+# Step 9: Wait for A2A server to be ready before starting agents
 echo ""
-echo "⏳ Step 9: Waiting for services to start..."
-sleep 20
+echo "⏳ Step 9: Waiting for A2A server to be ready..."
+until curl -s http://localhost:8000/health > /dev/null 2>&1; do
+    echo "   Waiting for A2A server..."
+    sleep 5
+done
+echo "✅ A2A server is ready!"
+
+# Step 9.5: Start agents after A2A server is ready
+echo ""
+echo "🤖 Step 9.5: Starting agents..."
+docker-compose up -d buyer-agent seller-agent
+sleep 10
 
 # Step 10: Wait for Keycloak to be ready
 echo ""
@@ -122,15 +136,6 @@ until curl -s http://localhost:11000/health > /dev/null 2>&1; do
     sleep 5
 done
 echo "✅ Keycloak is ready!"
-
-# Step 11: Wait for A2A server to be ready
-echo ""
-echo "⏳ Step 11: Waiting for A2A server to be ready..."
-until curl -s http://localhost:8000/health > /dev/null 2>&1; do
-    echo "   Waiting for A2A server..."
-    sleep 5
-done
-echo "✅ A2A server is ready!"
 
 # Step 12: Verify the deployment endpoints are available
 echo ""
@@ -208,8 +213,8 @@ echo "📊 Service Status:"
 echo "   A2A Server: http://localhost:8000"
 echo "   NPL Engine: http://localhost:12000"
 echo "   Keycloak: http://localhost:11000"
-echo "   Procurement Agent: http://localhost:8001"
-echo "   Finance Agent: http://localhost:8002"
+echo "   Buyer Agent: http://localhost:8001"
+echo "   Seller Agent: http://localhost:8002"
 echo ""
 echo "🔑 Test token available in tests/test-token.txt"
 echo "🧪 Run tests with: cd tests && ./run-tests.sh"

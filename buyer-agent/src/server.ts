@@ -207,13 +207,106 @@ app.get('/a2a/agent-card', (req, res) => {
   res.json(agentCard);
 });
 
+// Agent Communication endpoints (for A2A agent-to-agent messaging)
+// Handle agent messages (JSON-RPC at root path)
+app.post('/', (req, res) => {
+  try {
+    const { jsonrpc, id, method, params } = req.body;
+    
+    console.log(`[Procurement Agent] Received ${method}:`, JSON.stringify(params, null, 2));
+    
+    if (method === 'agent.message') {
+      handleAgentMessage(params.message, res, id);
+    } else if (method === 'agent.notification') {
+      handleAgentNotification(params.message, res);
+    } else {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32601,
+          message: 'Method not found'
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error('[Procurement Agent] Error handling agent communication:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body.id,
+      error: {
+        code: -32603,
+        message: 'Internal error'
+      }
+    });
+  }
+});
+
+function handleAgentMessage(message: any, res: any, id: any) {
+  console.log(`[Procurement Agent] Received message from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
+
+  let response;
+  
+  if (message.content.type === 'collaboration_request') {
+    // Handle collaboration requests
+    response = {
+      status: 'accepted',
+      message: 'Procurement Agent accepts the collaboration',
+      details: {
+        acceptedAt: new Date().toISOString(),
+        capabilities: ['RFP creation', 'Vendor management', 'Procurement workflows'],
+        estimatedCompletionTime: '2025-02-15T12:00:00Z'
+      }
+    };
+  } else if (message.content.type === 'finance_approval') {
+    // Handle finance approval notifications
+    response = {
+      status: 'acknowledged',
+      message: 'Procurement Agent acknowledges finance approval',
+      details: {
+        rfpId: message.content.rfpId || 'unknown',
+        nextSteps: ['Vendor selection', 'Contract negotiation', 'Purchase order creation']
+      }
+    };
+  } else {
+    // Generic response
+    response = {
+      status: 'received',
+      message: 'Procurement Agent received your message',
+      capabilities: ['procurement.create_rfp', 'procurement.submit_rfp', 'procurement.track_rfp'],
+      echo: message.content
+    };
+  }
+
+  // Send JSON-RPC response
+  res.json({
+    jsonrpc: '2.0',
+    id,
+    result: response
+  });
+}
+
+function handleAgentNotification(message: any, res: any) {
+  console.log(`[Procurement Agent] Received notification from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
+  
+  // Process the notification (could trigger internal workflows)
+  if (message.content.type === 'system_announcement') {
+    console.log(`[Procurement Agent] System announcement: ${message.content.message}`);
+  } else if (message.content.type === 'budget_update') {
+    console.log(`[Procurement Agent] Budget update received: ${JSON.stringify(message.content)}`);
+  }
+  
+  // Notifications don't expect a response (fire-and-forget)
+  res.status(200).send();
+}
+
 // A2A Request endpoint
 app.post('/a2a/request', verifyToken, async (req, res) => {
   try {
     const request: JSONRPCRequest = req.body;
     const token = (req as any).token;
     
-    console.log('Procurement Agent received request:', {
+    console.log('Buyer Agent received request:', {
       id: request.id,
       method: request.method,
       params: request.params
@@ -222,14 +315,14 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
     let result: any;
     
     switch (request.method) {
-      case 'procurement.create_rfp':
-        result = await handleCreateRfp(request.params, token);
+      case 'buyer.create_purchase_order':
+        result = await handleCreatePurchaseOrder(request.params, token);
         break;
-      case 'procurement.submit_rfp':
-        result = await handleSubmitRfp(request.params, token);
+      case 'buyer.evaluate_vendor':
+        result = await handleEvaluateVendor(request.params, token);
         break;
-      case 'procurement.track_rfp':
-        result = await handleTrackRfp(request.params, token);
+      case 'buyer.manage_contract':
+        result = await handleManageContract(request.params, token);
         break;
       default:
         const methodNotFoundError: MethodNotFoundError = {
@@ -282,8 +375,8 @@ app.post('/a2a/request', verifyToken, async (req, res) => {
   }
 });
 
-// Handle Create RFP with proper validation
-async function handleCreateRfp(params: any, token: string) {
+// Handle Create Purchase Order with proper validation
+async function handleCreatePurchaseOrder(params: any, token: string) {
   const { title, amount, description, category, due_date, agent_id } = params as CreateRfpParams;
   
   // Validate required parameters
@@ -296,7 +389,7 @@ async function handleCreateRfp(params: any, token: string) {
   }
   
   // Call A2A Hub for policy enforcement
-  const policyResult = await callA2AHub('procurement.create_rfp', agent_id, {
+  const policyResult = await callA2AHub('buyer.create_purchase_order', agent_id, {
     title,
     amount,
     description,
@@ -308,10 +401,10 @@ async function handleCreateRfp(params: any, token: string) {
     throw new Error(`Policy enforcement failed: ${policyResult.error}`);
   }
   
-  // Create RFP
-  const rfpId = `rfp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const rfp: RfpData = {
-    rfp_id: rfpId,
+  // Create Purchase Order
+  const poId = `po_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const purchaseOrder: RfpData = {
+    rfp_id: poId,
     title,
     amount,
     status: 'draft',
@@ -322,85 +415,160 @@ async function handleCreateRfp(params: any, token: string) {
     due_date
   };
   
-  rfpStore.set(rfpId, rfp);
+  rfpStore.set(poId, purchaseOrder);
   
   return {
-    rfp_id: rfpId,
+    po_id: poId,
     status: 'created',
-    message: 'RFP created successfully',
+    message: 'Purchase order created successfully',
     timestamp: new Date().toISOString(),
-    rfp: rfp
+    purchase_order: purchaseOrder
   };
 }
 
-// Handle Submit RFP (minimal)
-async function handleSubmitRfp(params: any, token: string) {
-  const { rfp_id, agent_id } = params;
+// Handle Evaluate Vendor (minimal)
+async function handleEvaluateVendor(params: any, token: string) {
+  const { vendor_id, criteria, agent_id } = params;
   
-  if (!rfp_id) {
-    throw new Error('RFP ID is required');
-  }
-  
-  const rfp = rfpStore.get(rfp_id);
-  if (!rfp) {
-    throw new Error(`RFP not found: ${rfp_id}`);
-  }
-  
-  if (rfp.status !== 'draft') {
-    throw new Error(`RFP ${rfp_id} is not in draft status`);
+  if (!vendor_id || !criteria) {
+    throw new Error('Vendor ID and criteria are required');
   }
   
   // Call A2A Hub for policy enforcement
-  const hubResponse = await callA2AHub('submit_rfp', agent_id || 'unknown', {
-    rfp_id,
-    amount: rfp.amount
+  const hubResponse = await callA2AHub('buyer.evaluate_vendor', agent_id || 'unknown', {
+    vendor_id,
+    criteria
   }, token);
   
   if (!hubResponse.success) {
     throw new Error(`Policy check failed: ${hubResponse.error}`);
   }
   
-  // Update RFP status
-  rfp.status = 'submitted';
-  rfpStore.set(rfp_id, rfp);
-  
-  console.log(`Submitted RFP: ${rfp_id} by ${agent_id}`);
+  console.log(`Evaluated vendor: ${vendor_id} by ${agent_id}`);
   
   return {
-    rfp_id,
-    status: 'submitted',
-    message: 'RFP submitted successfully'
+    vendor_id,
+    evaluation_score: Math.floor(Math.random() * 100) + 1, // Mock score
+    status: 'evaluated',
+    message: 'Vendor evaluation completed successfully'
   };
 }
 
-// Handle Track RFP (minimal)
-async function handleTrackRfp(params: any, token: string) {
-  const { rfp_id } = params;
+// Handle Manage Contract (minimal)
+async function handleManageContract(params: any, token: string) {
+  const { contract_id, action, agent_id } = params;
   
-  if (!rfp_id) {
-    throw new Error('RFP ID is required');
+  if (!contract_id || !action) {
+    throw new Error('Contract ID and action are required');
   }
   
-  const rfp = rfpStore.get(rfp_id);
-  if (!rfp) {
-    throw new Error(`RFP not found: ${rfp_id}`);
+  // Call A2A Hub for policy enforcement
+  const hubResponse = await callA2AHub('buyer.manage_contract', agent_id || 'unknown', {
+    contract_id,
+    action
+  }, token);
+  
+  if (!hubResponse.success) {
+    throw new Error(`Policy check failed: ${hubResponse.error}`);
   }
+  
+  console.log(`Managed contract: ${contract_id} with action ${action} by ${agent_id}`);
   
   return {
-    rfp_id,
-    status: rfp.status,
-    title: rfp.title,
-    amount: rfp.amount,
-    created_at: rfp.created_at
+    contract_id,
+    action,
+    status: 'processed',
+    message: `Contract ${action} completed successfully`
   };
+}
+
+/**
+ * Register this agent with the A2A service
+ */
+async function registerWithA2AService() {
+  try {
+    const registrationData = {
+      agent: {
+        name: 'Buyer Agent',
+        description: 'Enterprise buyer agent for procurement, vendor evaluation, and purchase order management with policy enforcement',
+        url: `http://localhost:${PORT}`,
+        transport: 'http',
+        capabilities: [
+          'Purchase order creation and management',
+          'Vendor evaluation and selection',
+          'Procurement workflow automation',
+          'Policy enforcement',
+          'Budget integration',
+          'Contract negotiation'
+        ],
+        skills: [
+          'buyer.create_purchase_order',
+          'buyer.evaluate_vendor', 
+          'buyer.manage_contract'
+        ],
+        organization: 'enterprise',
+        version: '1.0.0',
+        tags: ['buyer', 'procurement', 'purchase', 'vendor', 'enterprise']
+      }
+    };
+
+    const response = await fetch(`${A2A_HUB_URL}/agents/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(registrationData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Registration failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json() as { agentId: string; message: string };
+    console.log(`✅ Successfully registered with A2A service: ${result.agentId}`);
+    
+    // Start sending heartbeats
+    startHeartbeat(result.agentId);
+    
+    return result.agentId;
+  } catch (error) {
+    console.error('❌ Failed to register with A2A service:', error);
+    // Don't fail startup if registration fails
+    return null;
+  }
+}
+
+/**
+ * Send periodic heartbeats to maintain registration
+ */
+function startHeartbeat(agentId: string) {
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${A2A_HUB_URL}/agents/heartbeat/${agentId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn(`⚠️ Heartbeat failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Heartbeat error:', error);
+    }
+  }, 30000); // Send heartbeat every 30 seconds
 }
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Procurement Agent running on port ${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`Buyer Agent running on port ${PORT}`);
   console.log(`A2A Hub URL: ${A2A_HUB_URL}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Agent card: http://localhost:${PORT}/a2a/agent-card`);
+  
+  // Register with A2A service
+  await registerWithA2AService();
 });
 
 export default app; 
