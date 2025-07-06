@@ -3,6 +3,8 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { findMethodMapping } = require('./method-mappings');
 const { getProtocolSkills, getAllProtocols } = require('./agent-skills');
+const { v4: uuidv4 } = require('uuid');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // Import generated method handlers
 const { RfpWorkflow_getRfpDetails } = require('./method-handlers');
@@ -20,6 +22,10 @@ const PORT = process.env.PORT || 3000;
 
 // Configuration
 const NPL_ENGINE_URL = process.env.NPL_ENGINE_URL || 'http://npl-engine:12000';
+
+// Agent registry for tracking registered agents
+const agentRegistry = new Map();
+const agentHeartbeats = new Map();
 
 // Middleware
 app.use(cors());
@@ -162,6 +168,211 @@ async function handleGetMyProtocolContent(params, token, res) {
 }
 
 /**
+ * Agent registration endpoint
+ */
+app.post('/agents/register', (req, res) => {
+    try {
+        const { agent } = req.body;
+        
+        if (!agent || !agent.name || !agent.url) {
+            return res.status(400).json({
+                error: 'Missing required agent information: name, url'
+            });
+        }
+
+        // Generate unique agent ID
+        const agentId = `${agent.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString(36)}`;
+        
+        // Store agent information
+        agentRegistry.set(agentId, {
+            ...agent,
+            agentId,
+            registeredAt: new Date().toISOString(),
+            lastHeartbeat: new Date().toISOString(),
+            status: 'active'
+        });
+
+        console.log(`✅ Agent registered: ${agentId} (${agent.name})`);
+        
+        res.json({
+            agentId,
+            message: 'Agent registered successfully',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Agent registration error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * Agent heartbeat endpoint
+ */
+app.post('/agents/heartbeat/:agentId', (req, res) => {
+    try {
+        const { agentId } = req.params;
+        
+        if (!agentRegistry.has(agentId)) {
+            return res.status(404).json({
+                error: 'Agent not found',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Update heartbeat
+        const agent = agentRegistry.get(agentId);
+        agent.lastHeartbeat = new Date().toISOString();
+        agent.status = 'active';
+        agentRegistry.set(agentId, agent);
+
+        res.json({
+            message: 'Heartbeat received',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Agent heartbeat error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * Agent discovery endpoint
+ */
+app.get('/agents/discover', (req, res) => {
+    try {
+        const { organization, skills, tags } = req.query;
+        
+        let agents = Array.from(agentRegistry.values());
+        
+        // Filter by organization
+        if (organization) {
+            agents = agents.filter(agent => 
+                agent.organization && agent.organization.toLowerCase().includes(organization.toLowerCase())
+            );
+        }
+        
+        // Filter by skills
+        if (skills) {
+            const skillArray = Array.isArray(skills) ? skills : [skills];
+            agents = agents.filter(agent => 
+                agent.skills && skillArray.some(skill => 
+                    agent.skills.some(agentSkill => 
+                        agentSkill.toLowerCase().includes(skill.toLowerCase())
+                    )
+                )
+            );
+        }
+        
+        // Filter by tags
+        if (tags) {
+            const tagArray = Array.isArray(tags) ? tags : [tags];
+            agents = agents.filter(agent => 
+                agent.tags && tagArray.some(tag => 
+                    agent.tags.some(agentTag => 
+                        agentTag.toLowerCase().includes(tag.toLowerCase())
+                    )
+                )
+            );
+        }
+
+        res.json({
+            agents,
+            total: agents.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Agent discovery error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * Get agent health status
+ */
+app.get('/agents/agents/:agentId/health', (req, res) => {
+    try {
+        const { agentId } = req.params;
+        
+        if (!agentRegistry.has(agentId)) {
+            return res.status(404).json({
+                error: 'Agent not found',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const agent = agentRegistry.get(agentId);
+        const lastHeartbeat = new Date(agent.lastHeartbeat);
+        const now = new Date();
+        const timeSinceHeartbeat = now - lastHeartbeat;
+        
+        // Consider agent inactive if no heartbeat for 2 minutes
+        const isActive = timeSinceHeartbeat < 120000;
+
+        res.json({
+            agentId,
+            status: isActive ? 'active' : 'inactive',
+            lastHeartbeat: agent.lastHeartbeat,
+            timeSinceHeartbeat: timeSinceHeartbeat,
+            agent: {
+                name: agent.name,
+                description: agent.description,
+                url: agent.url,
+                capabilities: agent.capabilities,
+                skills: agent.skills,
+                organization: agent.organization,
+                version: agent.version,
+                tags: agent.tags
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Agent health check error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
+ * Get registry statistics
+ */
+app.get('/agents/stats/registry', (req, res) => {
+    try {
+        const agents = Array.from(agentRegistry.values());
+        const now = new Date();
+        
+        const activeAgents = agents.filter(agent => {
+            const lastHeartbeat = new Date(agent.lastHeartbeat);
+            return (now - lastHeartbeat) < 120000; // 2 minutes
+        });
+
+        res.json({
+            totalAgents: agents.length,
+            activeAgents: activeAgents.length,
+            inactiveAgents: agents.length - activeAgents.length,
+            organizations: [...new Set(agents.map(a => a.organization).filter(Boolean))],
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Registry stats error:', error);
+        res.status(500).json({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
  * A2A method execution endpoint (NPL Integration)
  */
 app.post('/a2a/method', async (req, res) => {
@@ -278,6 +489,128 @@ app.get('/health', (req, res) => {
         npl_integration: true,
         timestamp: new Date().toISOString()
     });
+});
+
+/**
+ * Agent message relay endpoint
+ */
+app.post('/agents/message', async (req, res) => {
+    try {
+        console.log('📨 Message relay endpoint called');
+        const { fromAgentId, toAgentId, type, content } = req.body;
+        if (!fromAgentId || !toAgentId || !type || !content) {
+            return res.status(400).json({
+                status: 'failed',
+                error: 'Missing required fields: fromAgentId, toAgentId, type, content'
+            });
+        }
+        if (!agentRegistry.has(fromAgentId)) {
+            return res.status(400).json({
+                status: 'failed',
+                error: `Sender agent not found: ${fromAgentId}`
+            });
+        }
+        const messageId = uuidv4();
+        const messagePayload = {
+            messageId,
+            fromAgentId,
+            toAgentId,
+            type,
+            content,
+            timestamp: new Date().toISOString()
+        };
+
+        // Handle broadcast messages
+        console.log(`🔍 Checking if toAgentId '${toAgentId}' is 'all'`);
+        if (toAgentId === 'all') {
+            const allAgents = Array.from(agentRegistry.values()).filter(agent => agent.agentId !== fromAgentId);
+            const deliveryResults = [];
+            let successCount = 0;
+            let failureCount = 0;
+
+            for (const agent of allAgents) {
+                try {
+                    const response = await fetch(`${agent.url}/a2a/message`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ...messagePayload,
+                            toAgentId: agent.agentId
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        deliveryResults.push({ agentId: agent.agentId, status: 'delivered', result });
+                        successCount++;
+                    } else {
+                        deliveryResults.push({ agentId: agent.agentId, status: 'failed', error: `HTTP ${response.status}` });
+                        failureCount++;
+                    }
+                } catch (err) {
+                    deliveryResults.push({ agentId: agent.agentId, status: 'failed', error: err.message });
+                    failureCount++;
+                }
+            }
+
+            console.log(`📨 Broadcast message ${messageId} delivered to ${successCount} agents, ${failureCount} failures`);
+            res.json({ 
+                messageId, 
+                status: 'broadcast_completed', 
+                delivered: successCount,
+                failed: failureCount,
+                total: allAgents.length,
+                deliveryResults 
+            });
+            return;
+        }
+
+        // Handle direct messages
+        if (!agentRegistry.has(toAgentId)) {
+            return res.status(400).json({
+                status: 'failed',
+                error: `Recipient agent not found: ${toAgentId}`
+            });
+        }
+        
+        const recipient = agentRegistry.get(toAgentId);
+        const recipientUrl = recipient.url;
+        if (!recipientUrl) {
+            return res.status(400).json({
+                status: 'failed',
+                error: 'Recipient agent has no URL registered'
+            });
+        }
+
+        let deliveryResult = null;
+        try {
+            const response = await fetch(`${recipientUrl}/a2a/message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(messagePayload)
+            });
+            if (!response.ok) {
+                throw new Error(`Recipient responded with status ${response.status}`);
+            }
+            deliveryResult = await response.json();
+            console.log(`📨 Message ${messageId} delivered from ${fromAgentId} to ${toAgentId}`);
+            res.json({ messageId, status: 'delivered', deliveryResult });
+        } catch (err) {
+            console.warn(`⚠️ Message delivery failed: ${err.message}`);
+            res.status(400).json({
+                messageId,
+                status: 'failed',
+                error: 'Network error: No response received',
+                details: err.message
+            });
+        }
+    } catch (error) {
+        console.error('Agent message relay error:', error);
+        res.status(500).json({
+            status: 'failed',
+            error: error.message
+        });
+    }
 });
 
 // Start server

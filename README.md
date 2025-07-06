@@ -202,10 +202,15 @@ a2a_server:
 - **Fixed rebuild script process detection** - Proper TypeScript process detection
 - **Fixed A2A method generation** - Proper JavaScript file generation
 - **Fixed stale protocol cleanup** - Removes old protocols automatically
-- **Comprehensive test suite** - All 6 tests passing with 100% success rate
+- **Comprehensive test suite** - All 8 tests passing with 100% success rate
 - **Optimized development workflow** - Fast A2A-only rebuilds available
 - **Fixed agent discovery compatibility** - Supports both string and object skill formats
 - **Enhanced agent communication** - Robust registration, discovery, and health monitoring
+- **Implemented full agent messaging system** - Direct messaging, broadcast, collaboration, and communication statistics
+- **Fixed agent registration URLs** - Proper Docker service name resolution
+- **Added message relay endpoints** - Complete end-to-end agent communication
+- **Implemented broadcast messaging** - Send messages to all active agents
+- **Fixed collaboration workflow** - Proper status handling and response codes
 
 ## 🧪 **Proven Use Cases**
 
@@ -229,40 +234,48 @@ The system has been tested with a complete **Payment Workflow**:
    Delivery Date: 2025-07-05T23:04:14.045Z
 ```
 
-### **2. Agent-to-Agent Messaging System**
-The **Agent-to-Agent messaging system** is now fully operational with comprehensive communication capabilities:
+### **2. Agent-to-Agent Communication System**
+The **Agent-to-Agent communication system** is now fully operational with comprehensive messaging capabilities:
 
 ```bash
-🎉 Agent Messaging Test Results:
+🎉 Agent Communication Test Results:
    ✅ Agent Discovery: 2 agents found and active
+   ✅ Agent Health Check: Both agents healthy
    ✅ Direct Messaging: Successfully delivered with response
-   ✅ Agent Collaboration: Accepted with proper details
-   ✅ Message History: 2 messages tracked
-   ✅ Communication Statistics: Metrics working
-   ✅ Direct Communication: Perfect end-to-end communication
+   ✅ Broadcast Messaging: Messages delivered to all agents
+   ✅ Agent Collaboration: Started with pending status
+   ✅ Message History: 3 messages tracked and retrievable
+   ✅ Communication Statistics: Real-time metrics working
+   ✅ Heartbeat Updates: Both agents maintaining active status
 
-📊 Messaging Results:
-   Message ID: a1a9723c-dd7e-4a0c-b80a-15d68c3974bc
+📊 Communication Results:
+   Message ID: 61302924-2419-4df8-8617-e0bc84b13c76
    Status: delivered
-   Response: Processing order with inventory check
-   Collaboration ID: 92bba941-9cdd-4ff1-98b9-3d930ccad597
-   Status: accepted
+   Broadcast ID: 9681ce81-9407-4b50-b8df-33a7c85d99f7
+   Status: delivered (1 recipient, 1 success, 0 failures)
+   Collaboration ID: 2f251bd1-340c-43fa-b2bd-e8df0dcf49bc
+   Status: pending
+   Total Messages: 3
+   Active Conversations: 1
 ```
 
 **Key Features:**
 - **Direct Messaging**: Agents can send messages directly to each other
-- **Collaboration Workflows**: Start and manage agent collaborations
+- **Broadcast Messaging**: Send messages to all active agents simultaneously
+- **Agent Collaboration**: Start and manage agent collaboration workflows
 - **Message History**: Complete message tracking and retrieval
 - **Communication Statistics**: Real-time metrics and analytics
-- **Broadcast Notifications**: Send notifications to all active agents
+- **Agent Health Monitoring**: Real-time heartbeat tracking and status reporting
+- **Dynamic Registration**: Agents self-register with capabilities and skills
+- **Advanced Discovery**: Filter by organization, skills, capabilities, and tags
 - **JSON-RPC Protocol**: Standardized communication protocol
 - **Docker Network Integration**: Proper service discovery and routing
 
-### **3. Agent Communication System**
-The **Agent-to-Agent communication system** has been fully tested and operational:
+### **3. Agent Discovery and Health Monitoring**
+The **Agent discovery and health monitoring system** has been fully tested and operational:
 
 ```bash
-🎉 Agent Communication Test Results:
+🎉 Agent Discovery Test Results:
    ✅ Agent Registration & Discovery
    ✅ Multi-format skill support (legacy + new)
    ✅ Organization-based filtering
@@ -272,9 +285,9 @@ The **Agent-to-Agent communication system** has been fully tested and operationa
    ✅ Registry statistics
 
 📊 Discovery Results:
-   Total Agents: 6 active agents
-   Organizations: enterprise, ACME Corp, Test Corp
-   Skills: 13 different skills across all agents
+   Total Agents: 2 active agents
+   Organizations: enterprise
+   Skills: 6 different skills across all agents
    Health Status: All agents healthy
 ```
 
@@ -357,19 +370,21 @@ The comprehensive test suite covers:
 - ✅ **Agent Discovery** - Advanced filtering and multi-format skill support
 - ✅ **Agent Messaging** - Direct messaging, collaboration, and communication statistics
 
-### **Testing Agent Messaging**
+### **Testing Agent Communication**
 ```bash
-# Test the complete messaging system
-node tests/test-agent-messaging.js
+# Test the complete agent communication system
+node tests/test-agent-communication.js
 
 # Expected results:
-🎉 Agent Messaging Tests Completed!
+🎉 Agent Communication Tests Completed!
 ✅ Agent Discovery: 2 agents found and active
-✅ Direct Message: Successfully delivered with response
-✅ Agent Collaboration: Accepted with proper details
-✅ Message History: Messages tracked and retrievable
+✅ Agent Health Check: Both agents healthy
+✅ Direct Messaging: Successfully delivered with response
+✅ Broadcast Messaging: Messages delivered to all agents
+✅ Agent Collaboration: Started with pending status
+✅ Message History: 3 messages tracked and retrievable
 ✅ Communication Statistics: Real-time metrics working
-✅ Direct Communication: Perfect end-to-end communication
+✅ Heartbeat Updates: Both agents maintaining active status
 ```
 
 ### **Engine State Management**
@@ -413,7 +428,7 @@ curl http://localhost:8000/a2a/skills
   - Messaging: Order processing responses, inventory updates, quote generation
 - **Supplier Agent**: Handles supplier interactions (future implementation)
 
-### **Agent Messaging Architecture**
+### **Agent Communication Architecture**
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Buyer Agent   │◄──►│   A2A Server    │◄──►│  Seller Agent   │
@@ -423,15 +438,21 @@ curl http://localhost:8000/a2a/skills
          │                       │                       │
          ▼                       ▼                       ▼
    Direct Messages         Message Routing         Direct Messages
-   JSON-RPC Protocol      Agent Discovery         JSON-RPC Protocol
+   Broadcast Messages      Agent Discovery         Broadcast Messages
+   JSON-RPC Protocol      Health Monitoring       JSON-RPC Protocol
 ```
 
-**Messaging Endpoints:**
-- `POST /agents/message` - Send messages between agents
+**Communication Endpoints:**
+- `POST /agents/register` - Register new agents
+- `GET /agents/discover` - Discover agents with filtering
+- `GET /agents/agents/:agentId/health` - Get agent health status
+- `POST /agents/message` - Send messages between agents (direct/broadcast)
 - `POST /agents/collaborate` - Start agent collaborations
 - `GET /agents/messages/:agentId` - Get message history
 - `GET /agents/conversation/:agentId1/:agentId2` - Get conversation between agents
+- `GET /agents/stats/registry` - Get registry statistics
 - `GET /agents/stats/communication` - Get communication statistics
+- `POST /agents/heartbeat/:agentId` - Update agent heartbeat
 
 ## 📊 **Performance & Reliability**
 
@@ -455,11 +476,12 @@ curl http://localhost:8000/a2a/skills
 
 📊 Agent Messaging Results:
 ✅ Direct Messaging: Working
+✅ Broadcast Messaging: Working
 ✅ Agent Collaboration: Working
 ✅ Message History: Working
 ✅ Communication Statistics: Working
-✅ Broadcast Notifications: Working
-✅ Direct Agent Communication: Working
+✅ Heartbeat Updates: Working
+✅ End-to-End Communication: Working
 ```
 
 ### **Key Metrics**
@@ -491,6 +513,9 @@ The system is now **production-ready** with all major issues resolved:
 - **Development Workflow** - Fast A2A-only rebuilds for efficient development
 - **Agent Discovery** - Fixed compatibility issues with different skill formats
 - **Agent Communication** - Enhanced registration and discovery system
+- **Agent Messaging** - Complete end-to-end messaging system with broadcast support
+- **Docker Networking** - Fixed agent registration URLs for proper service discovery
+- **Collaboration Workflow** - Proper status handling and response codes
 
 ### 🎯 **Test Results**
 ```bash
@@ -507,6 +532,11 @@ The system is now **production-ready** with all major issues resolved:
 ✅ Health Monitoring: Working
 ✅ Multi-format Skills: Working
 ✅ Advanced Filtering: Working
+✅ Direct Messaging: Working
+✅ Broadcast Messaging: Working
+✅ Agent Collaboration: Working
+✅ Message History: Working
+✅ Communication Statistics: Working
 ```
 
 **Ready for real-world deployment!** 🎉 

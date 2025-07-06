@@ -266,10 +266,8 @@ export class AgentEndpoints {
       const request: AgentCollaborationRequest = collaborationRequest;
       const response = await this.agentCommunication.startCollaboration(fromAgentId, request);
       
-      if (response.status === 'accepted') {
+      if (response.status === 'accepted' || response.status === 'pending') {
         res.status(200).json(response);
-      } else if (response.status === 'pending') {
-        res.status(202).json(response);
       } else {
         res.status(400).json(response);
       }

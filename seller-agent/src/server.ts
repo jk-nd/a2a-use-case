@@ -72,42 +72,28 @@ const verifyToken = (req: express.Request, res: express.Response, next: express.
 
 // Handle agent messages (for agent-to-agent communication)
 function handleAgentMessage(message: any, res: any, id: any) {
-  console.log(`[Seller Agent] Received message from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
-
-  let response;
-  
-  if (message.content.type === 'collaboration_request') {
-    // Handle collaboration requests
-    response = {
-      status: 'accepted',
-      message: 'Seller Agent accepts the collaboration',
-      details: {
-        acceptedAt: new Date().toISOString(),
-        capabilities: ['Order processing', 'Inventory management', 'Quote generation'],
-        estimatedCompletionTime: '2025-02-15T12:00:00Z'
+  // Generic, extensible message handler for AI agents
+  if (!message || !message.content) {
+    return res.status(400).json({
+      jsonrpc: '2.0',
+      id,
+      error: {
+        code: -32602,
+        message: 'Invalid message format: missing content'
       }
-    };
-  } else if (message.content.type === 'order_request') {
-    // Handle order requests
-    response = {
-      status: 'processing',
-      message: 'Seller Agent is processing the order',
-      details: {
-        orderId: message.content.orderId || 'unknown',
-        nextSteps: ['Inventory check', 'Price calculation', 'Quote generation']
-      }
-    };
-  } else {
-    // Generic response
-    response = {
-      status: 'received',
-      message: 'Seller Agent received your message',
-      capabilities: ['seller.process_order', 'seller.check_inventory', 'seller.generate_quote'],
-      echo: message.content
-    };
+    });
   }
+  console.log(`[Seller Agent] Received message from ${message.fromAgentId}:`, message.content);
 
-  // Send JSON-RPC response
+  // Generic acknowledgment/echo (future: AI/skills can process content)
+  const response = {
+    status: 'received',
+    message: 'Message received',
+    echo: message.content,
+    timestamp: new Date().toISOString(),
+    // capabilities: ['seller.process_order', 'seller.check_inventory', 'seller.generate_quote']
+  };
+
   res.json({
     jsonrpc: '2.0',
     id,
@@ -116,16 +102,13 @@ function handleAgentMessage(message: any, res: any, id: any) {
 }
 
 function handleAgentNotification(message: any, res: any) {
-  console.log(`[Seller Agent] Received notification from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
-  
-  // Process the notification (could trigger internal workflows)
-  if (message.content.type === 'system_announcement') {
-    console.log(`[Seller Agent] System announcement: ${message.content.message}`);
-  } else if (message.content.type === 'order_update') {
-    console.log(`[Seller Agent] Order update received: ${JSON.stringify(message.content)}`);
+  // Generic notification handler for AI agents
+  if (!message || !message.content) {
+    console.warn('[Seller Agent] Received malformed notification:', message);
+    return res.status(400).send();
   }
-  
-  // Notifications don't expect a response (fire-and-forget)
+  console.log(`[Seller Agent] Notification from ${message.fromAgentId}:`, message.content);
+  // In the future, trigger internal workflows or AI skills here
   res.status(200).send();
 }
 
@@ -172,37 +155,37 @@ async function callA2AHub(action: string, agentId: string, context: any, token: 
 // Create agent skills with Google A2A structure
 const agentSkills: AgentSkill[] = [
   {
-    id: 'finance.approve_budget',
-    name: 'Approve Budget',
-    description: 'Approve budget allocation for Request for Proposal with financial validation',
-    tags: ['finance', 'budget', 'approval', 'rfp'],
+    id: 'seller.process_order',
+    name: 'Process Order',
+    description: 'Process customer orders with inventory validation and fulfillment',
+    tags: ['seller', 'order', 'fulfillment', 'inventory'],
     examples: [
-      'Approve budget for software development RFP',
-      'Approve IT budget allocation of $50,000'
+      'Process order for 100 laptops',
+      'Fulfill customer order with inventory check'
     ],
     inputModes: ['application/json'],
     outputModes: ['application/json']
   },
   {
-    id: 'finance.check_budget_availability',
-    name: 'Check Budget Availability',
-    description: 'Check if sufficient budget is available for a specific amount and budget code',
-    tags: ['finance', 'budget', 'validation', 'availability'],
+    id: 'seller.check_inventory',
+    name: 'Check Inventory',
+    description: 'Check product availability and inventory levels',
+    tags: ['seller', 'inventory', 'availability', 'stock'],
     examples: [
-      'Check IT budget availability for $50,000',
-      'Verify budget code IT-2024-001 has sufficient funds'
+      'Check inventory for laptop models',
+      'Verify stock availability for bulk orders'
     ],
     inputModes: ['application/json'],
     outputModes: ['application/json']
   },
   {
-    id: 'finance.get_budget_status',
-    name: 'Get Budget Status',
-    description: 'Get current budget status, allocations, and remaining funds for a budget code',
-    tags: ['finance', 'budget', 'status', 'reporting'],
+    id: 'seller.generate_quote',
+    name: 'Generate Quote',
+    description: 'Generate pricing quotes for customer orders',
+    tags: ['seller', 'quote', 'pricing', 'sales'],
     examples: [
-      'Get IT budget status for 2024',
-      'Check remaining budget for IT-2024-001'
+      'Generate quote for 100 laptops',
+      'Create pricing proposal for bulk order'
     ],
     inputModes: ['application/json'],
     outputModes: ['application/json']
@@ -217,7 +200,7 @@ const agentCapabilities: AgentCapabilities = {
   extensions: [
     {
       uri: 'https://developers.google.com/identity/protocols/oauth2',
-      description: 'OAuth 2.0 authentication for secure financial operations',
+      description: 'OAuth 2.0 authentication for secure sales operations',
       required: false
     }
   ]
@@ -228,7 +211,7 @@ const securityScheme: HTTPAuthSecurityScheme = {
   type: 'http',
   scheme: 'bearer',
   bearerFormat: 'JWT',
-  description: 'JWT Bearer token authentication for financial operations'
+  description: 'JWT Bearer token authentication for sales operations'
 };
 
 // Create agent provider
@@ -239,8 +222,8 @@ const agentProvider: AgentProvider = {
 
 // Create agent card with full Google A2A structure
 const agentCard: AgentCard = {
-  name: 'Finance Agent',
-  description: 'Enterprise finance agent for budget approval, financial validation, and budget management with policy enforcement',
+  name: 'Seller Agent',
+  description: 'Enterprise seller agent for order fulfillment, inventory management, and sales processing with policy enforcement',
   url: `${AGENT_URL}/a2a`,
   preferredTransport: 'JSONRPC',
   iconUrl: 'https://example.com/finance-agent-icon.png',
@@ -266,7 +249,7 @@ const agentCard: AgentCard = {
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    service: 'finance-agent',
+    service: 'seller-agent',
     timestamp: new Date().toISOString(),
     budget_approvals_count: budgetApprovals.size,
     budget_data_count: budgetData.size
@@ -472,6 +455,7 @@ async function handleGenerateQuote(params: any, token: string) {
  */
 async function registerWithA2AService() {
   try {
+    console.log(`[SELLER] Registering with AGENT_URL: ${AGENT_URL}`);
     const registrationData = {
       agent: {
         name: 'Seller Agent',
@@ -544,6 +528,27 @@ function startHeartbeat(agentId: string) {
     }
   }, 30000); // Send heartbeat every 30 seconds
 }
+
+app.post('/a2a/message', async (req, res) => {
+  try {
+    const { messageId, fromAgentId, toAgentId, type, content, timestamp } = req.body;
+    console.log('[SELLER] Received message:', {
+      messageId, fromAgentId, toAgentId, type, content, timestamp
+    });
+    res.json({
+      messageId,
+      status: 'received',
+      receivedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[SELLER] Error in /a2a/message:', error);
+    res.status(200).json({
+      status: 'received',
+      error: (error as any).message,
+      receivedAt: new Date().toISOString()
+    });
+  }
+});
 
 // Start server
 app.listen(PORT, async () => {

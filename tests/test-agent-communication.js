@@ -13,101 +13,36 @@ async function testAgentCommunication() {
         // Get technical user token
         const token = await getTechnicalUserToken();
         
-        // Test 1: Register agents
-        console.log('📝 Test 1: Agent Registration');
-        const agent1 = await registerAgent({
-            name: 'Buyer Agent',
-            description: 'Handles purchase order creation, vendor evaluation, and contract management',
-            url: 'http://localhost:8001',
-            transport: 'http',
-            organization: 'ACME Corp',
-            version: '1.0.0',
-            capabilities: [
-                'Purchase order creation and management',
-                'Vendor evaluation and selection',
-                'Procurement workflow automation',
-                'Policy enforcement',
-                'Budget integration',
-                'Contract negotiation'
-            ],
-            skills: [
-                {
-                    id: 'buyer.create_purchase_order',
-                    name: 'Create Purchase Order',
-                    description: 'Create and manage purchase orders',
-                    tags: ['buyer', 'procurement', 'purchase', 'order'],
-                    examples: ['Create PO for office supplies', 'Submit vendor order']
-                },
-                {
-                    id: 'buyer.evaluate_vendor',
-                    name: 'Evaluate Vendor',
-                    description: 'Evaluate and select vendors',
-                    tags: ['buyer', 'vendor', 'evaluation', 'selection'],
-                    examples: ['Assess vendor performance', 'Compare vendor quotes']
-                },
-                {
-                    id: 'buyer.manage_contract',
-                    name: 'Manage Contract',
-                    description: 'Manage vendor contracts and agreements',
-                    tags: ['buyer', 'contract', 'agreement', 'legal'],
-                    examples: ['Review contract terms', 'Negotiate pricing']
-                }
-            ],
-            tags: ['buyer', 'procurement', 'purchase', 'vendor', 'enterprise']
-        });
-        
-        const agent2 = await registerAgent({
-            name: 'Seller Agent',
-            description: 'Handles order fulfillment, inventory management, and sales processing',
-            url: 'http://localhost:8002',
-            transport: 'http',
-            organization: 'ACME Corp',
-            version: '1.0.0',
-            capabilities: [
-                'Order fulfillment and processing',
-                'Inventory management',
-                'Sales policy enforcement',
-                'Pricing and quotation',
-                'Delivery coordination',
-                'Customer relationship management'
-            ],
-            skills: [
-                {
-                    id: 'seller.process_order',
-                    name: 'Process Order',
-                    description: 'Process and fulfill customer orders',
-                    tags: ['seller', 'order', 'fulfillment', 'processing'],
-                    examples: ['Process customer order', 'Update order status']
-                },
-                {
-                    id: 'seller.check_inventory',
-                    name: 'Check Inventory',
-                    description: 'Check and manage inventory levels',
-                    tags: ['seller', 'inventory', 'stock', 'availability'],
-                    examples: ['Check stock levels', 'Update inventory']
-                },
-                {
-                    id: 'seller.generate_quote',
-                    name: 'Generate Quote',
-                    description: 'Generate pricing quotes for customers',
-                    tags: ['seller', 'quote', 'pricing', 'sales'],
-                    examples: ['Create customer quote', 'Calculate pricing']
-                }
-            ],
-            tags: ['seller', 'sales', 'fulfillment', 'inventory', 'enterprise']
-        });
-        
-        console.log(`✅ Agent 1 registered: ${agent1.agentId}`);
-        console.log(`✅ Agent 2 registered: ${agent2.agentId}\n`);
-        
-        // Test 2: Agent Discovery
-        console.log('🔍 Test 2: Agent Discovery');
+        // Test 1: Discover existing agents
+        console.log('📝 Test 1: Agent Discovery');
         const discoveryResponse = await discoverAgents();
         console.log(`✅ Discovered ${discoveryResponse.total} agents`);
         
+        // Find the Docker-based agents (using service names)
+        const dockerAgents = discoveryResponse.agents.filter(agent => 
+            agent.url.includes('buyer-agent') || agent.url.includes('seller-agent')
+        );
+        
+        if (dockerAgents.length < 2) {
+            throw new Error('Need at least 2 Docker-based agents for testing');
+        }
+        
+        const buyerAgent = dockerAgents.find(agent => agent.url.includes('buyer-agent'));
+        const sellerAgent = dockerAgents.find(agent => agent.url.includes('seller-agent'));
+        
+        if (!buyerAgent || !sellerAgent) {
+            throw new Error('Could not find both buyer and seller agents');
+        }
+        
+        console.log(`✅ Using existing Buyer Agent: ${buyerAgent.agentId}`);
+        console.log(`✅ Using existing Seller Agent: ${sellerAgent.agentId}\n`);
+        
+        // Test 2: Agent Discovery (detailed)
+        console.log('🔍 Test 2: Agent Discovery Details');
+        
         // Test by organization
-        const orgDiscovery = await discoverAgents({ organization: 'ACME Corp' });
-        console.log(`✅ Found ${orgDiscovery.total} agents in ACME Corp`);
+        const orgDiscovery = await discoverAgents({ organization: 'enterprise' });
+        console.log(`✅ Found ${orgDiscovery.total} enterprise agents`);
         
         // Test by skills
         const skillDiscovery = await discoverAgents({ skills: ['Process Order'] });
@@ -115,17 +50,17 @@ async function testAgentCommunication() {
         
         // Test 3: Agent Health Check
         console.log('❤️  Test 3: Agent Health Check');
-        const health1 = await getAgentHealth(agent1.agentId);
-        const health2 = await getAgentHealth(agent2.agentId);
-        console.log(`✅ Agent 1 health: ${health1.status}`);
-        console.log(`✅ Agent 2 health: ${health2.status}\n`);
+        const health1 = await getAgentHealth(buyerAgent.agentId);
+        const health2 = await getAgentHealth(sellerAgent.agentId);
+        console.log(`✅ Buyer Agent health: ${health1.status}`);
+        console.log(`✅ Seller Agent health: ${health2.status}\n`);
         
         // Test 4: Send Messages
         console.log('💬 Test 4: Agent Messaging');
         
         // Send a notification message
-        const notificationResponse = await sendMessage(agent1.agentId, {
-            toAgentId: agent2.agentId,
+        const notificationResponse = await sendMessage(buyerAgent.agentId, {
+            toAgentId: sellerAgent.agentId,
             type: 'notification',
             content: {
                 type: 'purchase_order_created',
@@ -138,7 +73,7 @@ async function testAgentCommunication() {
         console.log(`✅ Notification sent: ${notificationResponse.messageId}`);
         
         // Send a broadcast message
-        const broadcastResponse = await sendMessage(agent1.agentId, {
+        const broadcastResponse = await sendMessage(buyerAgent.agentId, {
             toAgentId: 'all',
             type: 'broadcast',
             content: {
@@ -151,8 +86,8 @@ async function testAgentCommunication() {
         
         // Test 5: Start Collaboration
         console.log('🤝 Test 5: Agent Collaboration');
-        const collaborationResponse = await startCollaboration(agent1.agentId, {
-            targetAgentId: agent2.agentId,
+        const collaborationResponse = await startCollaboration(buyerAgent.agentId, {
+            targetAgentId: sellerAgent.agentId,
             type: 'workflow',
             details: {
                 name: 'Purchase Order Fulfillment Workflow',
@@ -174,10 +109,10 @@ async function testAgentCommunication() {
         
         // Test 6: Message History
         console.log('📜 Test 6: Message History');
-        const messageHistory = await getMessageHistory(agent1.agentId);
-        console.log(`✅ Retrieved ${messageHistory.total} messages for Agent 1`);
+        const messageHistory = await getMessageHistory(buyerAgent.agentId);
+        console.log(`✅ Retrieved ${messageHistory.total} messages for Buyer Agent`);
         
-        const conversation = await getConversation(agent1.agentId, agent2.agentId);
+        const conversation = await getConversation(buyerAgent.agentId, sellerAgent.agentId);
         console.log(`✅ Retrieved ${conversation.total} messages in conversation\n`);
         
         // Test 7: Statistics
@@ -190,15 +125,15 @@ async function testAgentCommunication() {
         
         // Test 8: Heartbeat Updates
         console.log('💓 Test 8: Heartbeat Updates');
-        await updateHeartbeat(agent1.agentId);
-        await updateHeartbeat(agent2.agentId);
+        await updateHeartbeat(buyerAgent.agentId);
+        await updateHeartbeat(sellerAgent.agentId);
         console.log('✅ Heartbeats updated for both agents\n');
         
         console.log('🎉 All agent communication tests passed!\n');
         
         // Display summary
         console.log('📋 Test Summary:');
-        console.log('✅ Agent registration and discovery');
+        console.log('✅ Agent discovery');
         console.log('✅ Agent health monitoring');
         console.log('✅ Message sending (notification, broadcast)');
         console.log('✅ Collaboration workflow');
@@ -208,7 +143,7 @@ async function testAgentCommunication() {
         
         return {
             success: true,
-            agents: [agent1, agent2],
+            agents: [buyerAgent, sellerAgent],
             stats: { registryStats, communicationStats }
         };
         
@@ -216,16 +151,6 @@ async function testAgentCommunication() {
         console.error('❌ Agent communication test failed:', error);
         return { success: false, error: error.message };
     }
-}
-
-/**
- * Register an agent
- */
-async function registerAgent(agentData) {
-    const response = await axios.post(`${A2A_SERVER_URL}/agents/register`, {
-        agent: agentData
-    });
-    return response.data;
 }
 
 /**
@@ -315,7 +240,6 @@ async function updateHeartbeat(agentId) {
 // Export functions for use in other test files
 module.exports = {
     testAgentCommunication,
-    registerAgent,
     discoverAgents,
     getAgentHealth,
     sendMessage,

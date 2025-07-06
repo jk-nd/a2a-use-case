@@ -28,7 +28,21 @@ export class AgentCommunication {
     request: AgentMessageRequest
   ): Promise<AgentMessageResponse> {
     try {
-      // Validate sender agent
+      // Handle broadcast messages first (don't require sender validation)
+      if (request.toAgentId === 'all') {
+        return await this.sendBroadcastMessage({
+          id: uuidv4(),
+          fromAgentId,
+          toAgentId: 'all',
+          type: request.type,
+          content: request.content,
+          timestamp: new Date().toISOString(),
+          correlationId: request.correlationId,
+          metadata: request.metadata
+        });
+      }
+
+      // Validate sender agent for direct messages
       const senderAgent = await this.agentRegistry.getAgent(fromAgentId);
       if (!senderAgent) {
         throw new Error(`Sender agent ${fromAgentId} not found`);
@@ -261,12 +275,24 @@ export class AgentCommunication {
       const response = await this.sendMessage(fromAgentId, messageRequest);
 
       if (response.status === 'delivered' && response.response) {
-        return {
-          collaborationId,
-          status: response.response.status || 'pending',
-          message: response.response.message,
-          details: response.response.details
-        };
+        // If the response has a status, use it; otherwise default to 'pending'
+        const responseStatus = response.response.status;
+        if (responseStatus === 'accepted' || responseStatus === 'rejected' || responseStatus === 'pending') {
+          return {
+            collaborationId,
+            status: responseStatus,
+            message: response.response.message,
+            details: response.response.details
+          };
+        } else {
+          // Default to pending for successful delivery
+          return {
+            collaborationId,
+            status: 'pending',
+            message: response.response.message || 'Collaboration request sent successfully',
+            details: response.response.details
+          };
+        }
       } else {
         return {
           collaborationId,

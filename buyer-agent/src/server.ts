@@ -244,42 +244,28 @@ app.post('/', (req, res) => {
 });
 
 function handleAgentMessage(message: any, res: any, id: any) {
-  console.log(`[Procurement Agent] Received message from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
-
-  let response;
-  
-  if (message.content.type === 'collaboration_request') {
-    // Handle collaboration requests
-    response = {
-      status: 'accepted',
-      message: 'Procurement Agent accepts the collaboration',
-      details: {
-        acceptedAt: new Date().toISOString(),
-        capabilities: ['RFP creation', 'Vendor management', 'Procurement workflows'],
-        estimatedCompletionTime: '2025-02-15T12:00:00Z'
+  // Generic, extensible message handler for AI agents
+  if (!message || !message.content) {
+    return res.status(400).json({
+      jsonrpc: '2.0',
+      id,
+      error: {
+        code: -32602,
+        message: 'Invalid message format: missing content'
       }
-    };
-  } else if (message.content.type === 'finance_approval') {
-    // Handle finance approval notifications
-    response = {
-      status: 'acknowledged',
-      message: 'Procurement Agent acknowledges finance approval',
-      details: {
-        rfpId: message.content.rfpId || 'unknown',
-        nextSteps: ['Vendor selection', 'Contract negotiation', 'Purchase order creation']
-      }
-    };
-  } else {
-    // Generic response
-    response = {
-      status: 'received',
-      message: 'Procurement Agent received your message',
-      capabilities: ['procurement.create_rfp', 'procurement.submit_rfp', 'procurement.track_rfp'],
-      echo: message.content
-    };
+    });
   }
+  console.log(`[Buyer Agent] Received message from ${message.fromAgentId}:`, message.content);
 
-  // Send JSON-RPC response
+  // Generic acknowledgment/echo (future: AI/skills can process content)
+  const response = {
+    status: 'received',
+    message: 'Message received',
+    echo: message.content,
+    timestamp: new Date().toISOString(),
+    // capabilities: ['buyer.create_purchase_order', 'buyer.evaluate_vendor', 'buyer.manage_contract']
+  };
+
   res.json({
     jsonrpc: '2.0',
     id,
@@ -288,16 +274,13 @@ function handleAgentMessage(message: any, res: any, id: any) {
 }
 
 function handleAgentNotification(message: any, res: any) {
-  console.log(`[Procurement Agent] Received notification from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
-  
-  // Process the notification (could trigger internal workflows)
-  if (message.content.type === 'system_announcement') {
-    console.log(`[Procurement Agent] System announcement: ${message.content.message}`);
-  } else if (message.content.type === 'budget_update') {
-    console.log(`[Procurement Agent] Budget update received: ${JSON.stringify(message.content)}`);
+  // Generic notification handler for AI agents
+  if (!message || !message.content) {
+    console.warn('[Buyer Agent] Received malformed notification:', message);
+    return res.status(400).send();
   }
-  
-  // Notifications don't expect a response (fire-and-forget)
+  console.log(`[Buyer Agent] Notification from ${message.fromAgentId}:`, message.content);
+  // In the future, trigger internal workflows or AI skills here
   res.status(200).send();
 }
 
@@ -528,6 +511,7 @@ async function handleManageContract(params: any, token: string) {
  */
 async function registerWithA2AService() {
   try {
+    console.log(`[BUYER] Registering with AGENT_URL: ${AGENT_URL}`);
     const registrationData = {
       agent: {
         name: 'Buyer Agent',
@@ -600,6 +584,27 @@ function startHeartbeat(agentId: string) {
     }
   }, 30000); // Send heartbeat every 30 seconds
 }
+
+app.post('/a2a/message', async (req, res) => {
+  try {
+    const { messageId, fromAgentId, toAgentId, type, content, timestamp } = req.body;
+    console.log('[BUYER] Received message:', {
+      messageId, fromAgentId, toAgentId, type, content, timestamp
+    });
+    res.json({
+      messageId,
+      status: 'received',
+      receivedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[BUYER] Error in /a2a/message:', error);
+    res.status(200).json({
+      status: 'received',
+      error: (error as any).message,
+      receivedAt: new Date().toISOString()
+    });
+  }
+});
 
 // Start server
 app.listen(PORT, async () => {
