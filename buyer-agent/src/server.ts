@@ -31,6 +31,7 @@ const PORT = process.env.PORT || 8001;
 
 // Configuration
 const A2A_HUB_URL = process.env.A2A_HUB_URL || 'http://localhost:8000';
+const AGENT_URL = process.env.AGENT_URL || `http://localhost:${PORT}`;
 
 // In-memory storage for RFPs (minimal)
 const rfpStore: Map<string, RfpData> = new Map();
@@ -171,7 +172,7 @@ const agentProvider: AgentProvider = {
 const agentCard: AgentCard = {
   name: 'Procurement Agent',
   description: 'Enterprise procurement agent for Request for Proposal (RFP) workflow management with policy enforcement',
-  url: `http://localhost:${PORT}/a2a`,
+  url: `${AGENT_URL}/a2a`,
   preferredTransport: 'JSONRPC',
   iconUrl: 'https://example.com/procurement-agent-icon.png',
   provider: agentProvider,
@@ -300,7 +301,47 @@ function handleAgentNotification(message: any, res: any) {
   res.status(200).send();
 }
 
-// A2A Request endpoint
+// A2A Message endpoint (for agent-to-agent communication)
+app.post('/', async (req, res) => {
+  try {
+    const request = req.body;
+    
+    console.log('Buyer Agent received message:', {
+      id: request.id,
+      method: request.method,
+      params: request.params
+    });
+    
+    // Handle different message types
+    if (request.method === 'agent.message') {
+      handleAgentMessage(request.params.message, res, request.id);
+    } else if (request.method === 'agent.notification') {
+      handleAgentNotification(request.params.message, res);
+    } else {
+      // Fallback to existing A2A request handling
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: request.id || null,
+        error: {
+          code: -32601,
+          message: `Method not found: ${request.method}`
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error('Error handling agent message:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: `Internal error: ${error.message}`
+      }
+    });
+  }
+});
+
+// A2A Request endpoint (for backward compatibility)
 app.post('/a2a/request', verifyToken, async (req, res) => {
   try {
     const request: JSONRPCRequest = req.body;
@@ -491,7 +532,7 @@ async function registerWithA2AService() {
       agent: {
         name: 'Buyer Agent',
         description: 'Enterprise buyer agent for procurement, vendor evaluation, and purchase order management with policy enforcement',
-        url: `http://localhost:${PORT}`,
+        url: AGENT_URL,
         transport: 'http',
         capabilities: [
           'Purchase order creation and management',

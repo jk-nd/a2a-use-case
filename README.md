@@ -229,7 +229,36 @@ The system has been tested with a complete **Payment Workflow**:
    Delivery Date: 2025-07-05T23:04:14.045Z
 ```
 
-### **2. Agent Communication System**
+### **2. Agent-to-Agent Messaging System**
+The **Agent-to-Agent messaging system** is now fully operational with comprehensive communication capabilities:
+
+```bash
+🎉 Agent Messaging Test Results:
+   ✅ Agent Discovery: 2 agents found and active
+   ✅ Direct Messaging: Successfully delivered with response
+   ✅ Agent Collaboration: Accepted with proper details
+   ✅ Message History: 2 messages tracked
+   ✅ Communication Statistics: Metrics working
+   ✅ Direct Communication: Perfect end-to-end communication
+
+📊 Messaging Results:
+   Message ID: a1a9723c-dd7e-4a0c-b80a-15d68c3974bc
+   Status: delivered
+   Response: Processing order with inventory check
+   Collaboration ID: 92bba941-9cdd-4ff1-98b9-3d930ccad597
+   Status: accepted
+```
+
+**Key Features:**
+- **Direct Messaging**: Agents can send messages directly to each other
+- **Collaboration Workflows**: Start and manage agent collaborations
+- **Message History**: Complete message tracking and retrieval
+- **Communication Statistics**: Real-time metrics and analytics
+- **Broadcast Notifications**: Send notifications to all active agents
+- **JSON-RPC Protocol**: Standardized communication protocol
+- **Docker Network Integration**: Proper service discovery and routing
+
+### **3. Agent Communication System**
 The **Agent-to-Agent communication system** has been fully tested and operational:
 
 ```bash
@@ -326,6 +355,22 @@ The comprehensive test suite covers:
 - ✅ **Protocol Instantiation** - Multi-party consent
 - ✅ **Agent Communication** - Registration, discovery, and health monitoring
 - ✅ **Agent Discovery** - Advanced filtering and multi-format skill support
+- ✅ **Agent Messaging** - Direct messaging, collaboration, and communication statistics
+
+### **Testing Agent Messaging**
+```bash
+# Test the complete messaging system
+node tests/test-agent-messaging.js
+
+# Expected results:
+🎉 Agent Messaging Tests Completed!
+✅ Agent Discovery: 2 agents found and active
+✅ Direct Message: Successfully delivered with response
+✅ Agent Collaboration: Accepted with proper details
+✅ Message History: Messages tracked and retrievable
+✅ Communication Statistics: Real-time metrics working
+✅ Direct Communication: Perfect end-to-end communication
+```
 
 ### **Engine State Management**
 ```bash
@@ -361,10 +406,32 @@ curl http://localhost:8000/a2a/skills
 - **Buyer Agent**: Handles purchase order creation, vendor evaluation, and contract management
   - Skills: Create Purchase Order, Evaluate Vendor, Manage Contract
   - Capabilities: Purchase order creation, Vendor evaluation, Procurement workflow automation
+  - Messaging: Direct communication with seller agents, collaboration workflows
 - **Seller Agent**: Handles order fulfillment, inventory management, and sales processing
   - Skills: Process Order, Check Inventory, Generate Quote
   - Capabilities: Order fulfillment, Inventory management, Sales policy enforcement
+  - Messaging: Order processing responses, inventory updates, quote generation
 - **Supplier Agent**: Handles supplier interactions (future implementation)
+
+### **Agent Messaging Architecture**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Buyer Agent   │◄──►│   A2A Server    │◄──►│  Seller Agent   │
+│   (Port 8001)   │    │   (Port 8000)   │    │   (Port 8002)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+   Direct Messages         Message Routing         Direct Messages
+   JSON-RPC Protocol      Agent Discovery         JSON-RPC Protocol
+```
+
+**Messaging Endpoints:**
+- `POST /agents/message` - Send messages between agents
+- `POST /agents/collaborate` - Start agent collaborations
+- `GET /agents/messages/:agentId` - Get message history
+- `GET /agents/conversation/:agentId1/:agentId2` - Get conversation between agents
+- `GET /agents/stats/communication` - Get communication statistics
 
 ## 📊 **Performance & Reliability**
 
@@ -385,6 +452,14 @@ curl http://localhost:8000/a2a/skills
 ✅ Tag filtering: Working
 ✅ Health monitoring: Working
 ✅ Registry statistics: Working
+
+📊 Agent Messaging Results:
+✅ Direct Messaging: Working
+✅ Agent Collaboration: Working
+✅ Message History: Working
+✅ Communication Statistics: Working
+✅ Broadcast Notifications: Working
+✅ Direct Agent Communication: Working
 ```
 
 ### **Key Metrics**
@@ -405,6 +480,7 @@ The system is now **production-ready** with all major issues resolved:
 - **Multi-IdP authentication** - Cross-organization collaboration
 - **Full audit trail** - Complete protocol interaction logging
 - **Agent communication system** - Dynamic registration, discovery, and health monitoring
+- **Agent messaging system** - Direct messaging, collaboration, and communication statistics
 - **Multi-format skill support** - Backward compatibility with legacy and new formats
 
 ### ✅ **Recent Critical Fixes**

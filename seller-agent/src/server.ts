@@ -31,6 +31,7 @@ const PORT = process.env.PORT || 8002;
 
 // Configuration
 const A2A_HUB_URL = process.env.A2A_HUB_URL || 'http://localhost:8000';
+const AGENT_URL = process.env.AGENT_URL || `http://localhost:${PORT}`;
 
 // In-memory storage for budget approvals and budget data
 const budgetApprovals: Map<string, BudgetApproval> = new Map();
@@ -68,6 +69,65 @@ const verifyToken = (req: express.Request, res: express.Response, next: express.
   (req as any).token = token;
   next();
 };
+
+// Handle agent messages (for agent-to-agent communication)
+function handleAgentMessage(message: any, res: any, id: any) {
+  console.log(`[Seller Agent] Received message from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
+
+  let response;
+  
+  if (message.content.type === 'collaboration_request') {
+    // Handle collaboration requests
+    response = {
+      status: 'accepted',
+      message: 'Seller Agent accepts the collaboration',
+      details: {
+        acceptedAt: new Date().toISOString(),
+        capabilities: ['Order processing', 'Inventory management', 'Quote generation'],
+        estimatedCompletionTime: '2025-02-15T12:00:00Z'
+      }
+    };
+  } else if (message.content.type === 'order_request') {
+    // Handle order requests
+    response = {
+      status: 'processing',
+      message: 'Seller Agent is processing the order',
+      details: {
+        orderId: message.content.orderId || 'unknown',
+        nextSteps: ['Inventory check', 'Price calculation', 'Quote generation']
+      }
+    };
+  } else {
+    // Generic response
+    response = {
+      status: 'received',
+      message: 'Seller Agent received your message',
+      capabilities: ['seller.process_order', 'seller.check_inventory', 'seller.generate_quote'],
+      echo: message.content
+    };
+  }
+
+  // Send JSON-RPC response
+  res.json({
+    jsonrpc: '2.0',
+    id,
+    result: response
+  });
+}
+
+function handleAgentNotification(message: any, res: any) {
+  console.log(`[Seller Agent] Received notification from ${message.fromAgentId}: ${message.content.message || 'No message'}`);
+  
+  // Process the notification (could trigger internal workflows)
+  if (message.content.type === 'system_announcement') {
+    console.log(`[Seller Agent] System announcement: ${message.content.message}`);
+  } else if (message.content.type === 'order_update') {
+    console.log(`[Seller Agent] Order update received: ${JSON.stringify(message.content)}`);
+  }
+  
+  // Notifications don't expect a response (fire-and-forget)
+  res.status(200).send();
+}
 
 // Call A2A Hub for policy enforcement
 async function callA2AHub(action: string, agentId: string, context: any, token: string) {
@@ -181,7 +241,7 @@ const agentProvider: AgentProvider = {
 const agentCard: AgentCard = {
   name: 'Finance Agent',
   description: 'Enterprise finance agent for budget approval, financial validation, and budget management with policy enforcement',
-  url: `http://localhost:${PORT}/a2a`,
+  url: `${AGENT_URL}/a2a`,
   preferredTransport: 'JSONRPC',
   iconUrl: 'https://example.com/finance-agent-icon.png',
   provider: agentProvider,
@@ -218,7 +278,47 @@ app.get('/a2a/agent-card', (req, res) => {
   res.json(agentCard);
 });
 
-// A2A Request endpoint
+// A2A Message endpoint (for agent-to-agent communication)
+app.post('/', async (req, res) => {
+  try {
+    const request = req.body;
+    
+    console.log('Seller Agent received message:', {
+      id: request.id,
+      method: request.method,
+      params: request.params
+    });
+    
+    // Handle different message types
+    if (request.method === 'agent.message') {
+      handleAgentMessage(request.params.message, res, request.id);
+    } else if (request.method === 'agent.notification') {
+      handleAgentNotification(request.params.message, res);
+    } else {
+      // Fallback to existing A2A request handling
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: request.id || null,
+        error: {
+          code: -32601,
+          message: `Method not found: ${request.method}`
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error('Error handling agent message:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: `Internal error: ${error.message}`
+      }
+    });
+  }
+});
+
+// A2A Request endpoint (for backward compatibility)
 app.post('/a2a/request', verifyToken, async (req, res) => {
   try {
     const request: JSONRPCRequest = req.body;
@@ -376,7 +476,7 @@ async function registerWithA2AService() {
       agent: {
         name: 'Seller Agent',
         description: 'Enterprise seller agent for order fulfillment, inventory management, and sales processing with policy enforcement',
-        url: `http://localhost:${PORT}`,
+        url: AGENT_URL,
         transport: 'http',
         capabilities: [
           'Order fulfillment and processing',
