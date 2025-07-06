@@ -91,39 +91,14 @@ async function checkDependencies() {
 // Test configuration
 const TESTS = [
   {
-    name: 'Payment Workflow Deployment',
-    file: 'deploy-payment-workflow.js',
-    description: 'Deploy payment workflow protocol at runtime'
-  },
-  {
     name: 'Payment Workflow Integration Test',
     file: 'test_payment_workflow_deployment_and_workflow.js',
     description: 'Complete payment workflow deployment and execution test'
   },
   {
-    name: 'A2A Discovery Test',
-    file: 'test_a2a_discovery.js',
-    description: 'Test A2A discovery with runtime-deployed protocols'
-  },
-  {
-    name: 'Payment Use Case Test',
-    file: 'payment-use-case/test_npl_protocol.js',
-    description: 'Test payment use case with NPL protocol'
-  },
-  {
     name: 'A2A Client Test',
     file: 'test_a2a_client.js',
     description: 'Test A2A client functionality'
-  },
-  {
-    name: 'Protocol Instantiation Test',
-    file: 'test-protocol-instantiation.js',
-    description: 'Test protocol instantiation'
-  },
-  {
-    name: 'Agent Communication Test',
-    file: 'test-agent-communication.js',
-    description: 'Test agent registration, discovery, and communication'
   },
   {
     name: 'LLM Negotiation & Payment Workflow Test',

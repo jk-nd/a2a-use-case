@@ -1,4 +1,4 @@
-import axios from 'axios';
+import OpenAI from 'openai';
 
 export interface LLMRequest {
   messages: Array<{
@@ -18,63 +18,52 @@ export interface LLMResponse {
 }
 
 export class LLMClient {
-  private apiKey: string;
-  private baseUrl: string;
+  private openai: OpenAI;
+  private model: string;
+  private maxTokens: number;
+  private temperature: number;
 
   constructor() {
-    // For simplicity, we'll use a mock LLM that simulates intelligent responses
-    // In production, you'd use OpenAI, Anthropic, or another LLM provider
-    this.apiKey = process.env.LLM_API_KEY || 'mock-key';
-    this.baseUrl = process.env.LLM_BASE_URL || 'https://api.openai.com/v1';
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required');
+    }
+
+    this.openai = new OpenAI({
+      apiKey: apiKey,
+    });
+
+    this.model = process.env.OPENAI_MODEL || 'gpt-4';
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS || '1000');
+    this.temperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.7');
   }
 
   async generateResponse(request: LLMRequest): Promise<string> {
     try {
-      // For demo purposes, we'll simulate intelligent responses
-      // In production, replace this with actual LLM API calls
-      return this.simulateLLMResponse(request);
+      console.log('🤖 Making OpenAI API call...');
+      
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: request.messages,
+        max_tokens: request.max_tokens || this.maxTokens,
+        temperature: request.temperature || this.temperature,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content received from OpenAI');
+      }
+
+      console.log('✅ OpenAI response received');
+      return content;
     } catch (error) {
-      console.error('LLM request failed:', error);
+      console.error('❌ OpenAI API call failed:', error);
       return this.getFallbackResponse(request);
     }
   }
 
-  private simulateLLMResponse(request: LLMRequest): string {
-    const lastMessage = request.messages[request.messages.length - 1];
-    const content = lastMessage.content.toLowerCase();
-
-    // Simulate buyer agent behavior
-    if (content.includes('buy') || content.includes('purchase')) {
-      if (content.includes('budget')) {
-        return 'I have a budget of $5000 for this purchase. I\'m looking for the best value within this range.';
-      }
-      if (content.includes('price') || content.includes('cost')) {
-        return 'I\'m interested in getting the best price possible. What\'s your best offer?';
-      }
-      return 'I\'m looking to purchase a high-quality product. What do you have available?';
-    }
-
-    if (content.includes('negotiate') || content.includes('offer')) {
-      if (content.includes('$')) {
-        // Extract price from message and counter-offer
-        const priceMatch = content.match(/\$(\d+)/);
-        if (priceMatch) {
-          const offeredPrice = parseInt(priceMatch[1]);
-          const counterOffer = Math.floor(offeredPrice * 0.85); // 15% discount
-          return `I appreciate the offer of $${offeredPrice}, but I can offer $${counterOffer}. This is within my budget and provides good value.`;
-        }
-      }
-      return 'I\'m willing to negotiate on price. What\'s your best offer?';
-    }
-
-    if (content.includes('agree') || content.includes('accept')) {
-      return 'I accept this offer. Let\'s proceed with the payment workflow.';
-    }
-
-    return 'I\'m a buyer agent looking for the best deal. What products do you have available?';
-  }
-
   private getFallbackResponse(request: LLMRequest): string {
+    console.log('⚠️ Using fallback response due to API failure');
     return 'I\'m a buyer agent. I\'m interested in purchasing products at the best possible price.';
   }
 
@@ -98,15 +87,16 @@ export class LLMClient {
 
     const response = await this.generateResponse({
       messages: [
-        { role: 'system', content: 'You are a buyer agent focused on getting the best value for money.' },
+        { role: 'system', content: 'You are a buyer agent focused on getting the best value for money. Respond concisely and clearly.' },
         { role: 'user', content: prompt }
       ]
     });
 
     // Parse the response to extract decision
-    if (response.toLowerCase().includes('accept')) {
+    const lowerResponse = response.toLowerCase();
+    if (lowerResponse.includes('accept')) {
       return { decision: 'accept', reasoning: response };
-    } else if (response.toLowerCase().includes('negotiate')) {
+    } else if (lowerResponse.includes('negotiate')) {
       const counterOffer = Math.floor(offeredPrice * 0.9); // 10% discount
       return { decision: 'negotiate', reasoning: response, counterOffer };
     } else {
@@ -119,11 +109,11 @@ export class LLMClient {
     Current offer: $${currentOffer}
     Your budget: $${budget}
     
-    Respond as a buyer agent negotiating for the best price.`;
+    Respond as a buyer agent negotiating for the best price. Keep your response concise and professional.`;
 
     return this.generateResponse({
       messages: [
-        { role: 'system', content: 'You are a buyer agent negotiating for the best price.' },
+        { role: 'system', content: 'You are a buyer agent negotiating for the best price. Be professional and strategic.' },
         { role: 'user', content: prompt }
       ]
     });

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import OpenAI from 'openai';
 
 export interface LLMRequest {
   messages: Array<{
@@ -29,13 +29,25 @@ export interface Product {
 }
 
 export class LLMClient {
-  private apiKey: string;
-  private baseUrl: string;
+  private openai: OpenAI;
+  private model: string;
+  private maxTokens: number;
+  private temperature: number;
   private products: Product[];
 
   constructor() {
-    this.apiKey = process.env.LLM_API_KEY || 'mock-key';
-    this.baseUrl = process.env.LLM_BASE_URL || 'https://api.openai.com/v1';
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required');
+    }
+
+    this.openai = new OpenAI({
+      apiKey: apiKey,
+    });
+
+    this.model = process.env.OPENAI_MODEL || 'gpt-4';
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS || '1000');
+    this.temperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.7');
     
     // Initialize with sample products
     this.products = [
@@ -74,63 +86,30 @@ export class LLMClient {
 
   async generateResponse(request: LLMRequest): Promise<string> {
     try {
-      return this.simulateLLMResponse(request);
+      console.log('🤖 Making OpenAI API call...');
+      
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: request.messages,
+        max_tokens: request.max_tokens || this.maxTokens,
+        temperature: request.temperature || this.temperature,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content received from OpenAI');
+      }
+
+      console.log('✅ OpenAI response received');
+      return content;
     } catch (error) {
-      console.error('LLM request failed:', error);
+      console.error('❌ OpenAI API call failed:', error);
       return this.getFallbackResponse(request);
     }
   }
 
-  private simulateLLMResponse(request: LLMRequest): string {
-    const lastMessage = request.messages[request.messages.length - 1];
-    const content = lastMessage.content.toLowerCase();
-
-    // Simulate seller agent behavior
-    if (content.includes('product') || content.includes('available') || content.includes('have')) {
-      return this.generateProductOffer();
-    }
-
-    if (content.includes('price') || content.includes('cost') || content.includes('offer')) {
-      if (content.includes('$')) {
-        const priceMatch = content.match(/\$(\d+)/);
-        if (priceMatch) {
-          const offeredPrice = parseInt(priceMatch[1]);
-          return this.generatePriceResponse(offeredPrice);
-        }
-      }
-      return 'I can offer competitive pricing. What\'s your budget range?';
-    }
-
-    if (content.includes('negotiate') || content.includes('discount')) {
-      return 'I\'m willing to work with you on pricing. What\'s your target price?';
-    }
-
-    if (content.includes('agree') || content.includes('accept')) {
-      return 'Excellent! I accept your offer. Let\'s proceed with the payment workflow.';
-    }
-
-    return 'I\'m a seller agent with quality products. What are you looking for?';
-  }
-
-  private generateProductOffer(): string {
-    const product = this.products[Math.floor(Math.random() * this.products.length)];
-    return `I have a ${product.name} available for $${product.basePrice}. ${product.description}. Features include: ${product.features.join(', ')}. Would you like to know more about this product?`;
-  }
-
-  private generatePriceResponse(offeredPrice: number): string {
-    const product = this.products[0]; // Use first product for simplicity
-    
-    if (offeredPrice >= product.minPrice && offeredPrice <= product.maxPrice) {
-      return `I can work with $${offeredPrice}. That\'s a fair offer for the ${product.name}. Let\'s proceed!`;
-    } else if (offeredPrice < product.minPrice) {
-      const counterOffer = Math.floor((product.minPrice + product.basePrice) / 2);
-      return `I appreciate your offer of $${offeredPrice}, but I need at least $${counterOffer} for the ${product.name}. This is still a great value!`;
-    } else {
-      return `$${offeredPrice} is very generous! I accept your offer for the ${product.name}.`;
-    }
-  }
-
   private getFallbackResponse(request: LLMRequest): string {
+    console.log('⚠️ Using fallback response due to API failure');
     return 'I\'m a seller agent with quality products. How can I help you today?';
   }
 
@@ -148,7 +127,7 @@ export class LLMClient {
 
     const response = await this.generateResponse({
       messages: [
-        { role: 'system', content: 'You are a seller agent helping customers find the right product.' },
+        { role: 'system', content: 'You are a seller agent helping customers find the right product. Be helpful and professional.' },
         { role: 'user', content: prompt }
       ]
     });
@@ -172,11 +151,11 @@ export class LLMClient {
     Min price: $${product.minPrice}
     Max price: $${product.maxPrice}
     
-    Decide whether to accept, counter-offer, or reject.`;
+    Decide whether to accept, counter-offer, or reject. Be strategic but fair.`;
 
     const response = await this.generateResponse({
       messages: [
-        { role: 'system', content: 'You are a seller agent negotiating prices.' },
+        { role: 'system', content: 'You are a seller agent negotiating prices. Be professional and strategic.' },
         { role: 'user', content: prompt }
       ]
     });

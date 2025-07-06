@@ -59,6 +59,13 @@ temp/
 .env.test.local
 .env.production.local
 
+# API Keys and sensitive files
+OpenAPIKey
+*.key
+*.pem
+*.p12
+*.pfx
+
 # Node modules (if any Node.js tools are used)
 node_modules/
 

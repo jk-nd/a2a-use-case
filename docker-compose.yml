@@ -130,6 +130,11 @@ services:
       A2A_HUB_URL: http://a2a-server:8000
       AGENT_URL: http://buyer-agent:8001
       SELLER_AGENT_URL: http://seller-agent:8002
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS:-1000}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.7}
     ports:
       - "8001:8001"
     depends_on:
@@ -145,6 +150,11 @@ services:
       A2A_HUB_URL: http://a2a-server:8000
       AGENT_URL: http://seller-agent:8002
       BUYER_AGENT_URL: http://buyer-agent:8001
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS:-1000}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.7}
     ports:
       - "8002:8002"
     depends_on:
